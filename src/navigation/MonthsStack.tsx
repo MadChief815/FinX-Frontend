@@ -5,7 +5,7 @@ import {
   type NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 import type { NavigationState } from '@react-navigation/native';
-import { useNavUiStore } from '../store/navUiStore';
+import { useNavUiStore } from '../store/navUistore';
 import MonthListScreen from '../screens/months/MonthListScreen';
 import MonthCreateScreen from '../screens/months/MonthCreateScreen';
 import MonthDetailScreen from '../screens/months/MonthDetailScreen';
