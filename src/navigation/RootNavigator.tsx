@@ -1,19 +1,29 @@
+// navigation/RootNavigator.tsx
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import HomeScreen from '../screens/HomeScreen';
+import { ActivityIndicator, View } from 'react-native';
+import { useAuthStore } from '../store/authStore';
+import AuthStack from './AuthStack';
+import AppTabs from './AppTabs';
 
-export type RootStackParamList = { Home: undefined };
-const Stack = createNativeStackNavigator<RootStackParamList>();
+export default function RootNavigator(): React.JSX.Element {
+    const { isAuthenticated, isLoading, hydrate } = useAuthStore();
 
-export default function RootNavigator() {
+    useEffect(() => {
+        hydrate();
+    }, [hydrate]);
+
+    if (isLoading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
     return (
-        <SafeAreaProvider>
-            <NavigationContainer>
-                <Stack.Navigator>
-                    <Stack.Screen name="Home" component={HomeScreen} />
-                </Stack.Navigator>
-            </NavigationContainer>
-        </SafeAreaProvider>
+        <NavigationContainer>
+            {isAuthenticated ? <AppTabs /> : <AuthStack />}
+        </NavigationContainer>
     );
 }
