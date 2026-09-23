@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">FixX_Pulse_Frontend</string>
+  <string name="app_name">FinX</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
 </resources>

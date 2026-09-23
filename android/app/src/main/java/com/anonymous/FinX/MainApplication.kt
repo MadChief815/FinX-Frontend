@@ -1,4 +1,4 @@
-package com.fixxpulsefrontend
+package com.anonymous.FinX
 
 import android.app.Application
 import android.content.res.Configuration

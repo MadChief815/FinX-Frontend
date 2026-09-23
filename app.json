@@ -2,6 +2,24 @@
   "expo": {
     "name": "FinX",
     "slug": "FinX",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "splash": {
+      "image": "./src/assets/SplashScreen/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#281D39"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/SplashScreen/splash-logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#281D39"
+        }
+      ]
+    ],
+    "android": {
+      "package": "com.anonymous.FinX"
+    }
   }
 }
