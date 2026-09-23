@@ -1,5 +1,4 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -8,16 +7,10 @@ import type { NavigationState } from '@react-navigation/native';
 import { useNavUiStore } from '../store/navUistore';
 import type { IncomeStackParamList } from './types';
 
-const Stack = createNativeStackNavigator<IncomeStackParamList>();
+// Screens
+import IncomeScreen from '../screens/income/IncomeScreen';
 
-function IncomeScreen(): React.JSX.Element {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Income</Text>
-      <Text>Income screen placeholder</Text>
-    </SafeAreaView>
-  );
-}
+const Stack = createNativeStackNavigator<IncomeStackParamList>();
 
 export default function IncomeStack(): React.JSX.Element {
   const setActiveStackDepth = useNavUiStore((state) => state.setActiveStackDepth);
@@ -38,17 +31,3 @@ export default function IncomeStack(): React.JSX.Element {
 
 export type IncomeScreenProps<T extends keyof IncomeStackParamList> =
   NativeStackScreenProps<IncomeStackParamList, T>;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-});

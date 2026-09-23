@@ -1,5 +1,4 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -8,16 +7,10 @@ import type { NavigationState } from '@react-navigation/native';
 import { useNavUiStore } from '../store/navUistore';
 import type { LoansStackParamList } from './types';
 
-const Stack = createNativeStackNavigator<LoansStackParamList>();
+// Screens
+import LoansScreen from '../screens/loans/LoansScreen';
 
-function LoansScreen(): React.JSX.Element {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Loans</Text>
-      <Text>Loans screen placeholder</Text>
-    </SafeAreaView>
-  );
-}
+const Stack = createNativeStackNavigator<LoansStackParamList>();
 
 export default function LoansStack(): React.JSX.Element {
   const setActiveStackDepth = useNavUiStore((state) => state.setActiveStackDepth);
@@ -38,17 +31,3 @@ export default function LoansStack(): React.JSX.Element {
 
 export type LoansScreenProps<T extends keyof LoansStackParamList> =
   NativeStackScreenProps<LoansStackParamList, T>;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-});

@@ -1,14 +1,20 @@
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavUiStore } from '../store/navUistore';
+import type { AppTabsParamList } from './types';
+
+// Stacks
 import DashboardStack from './DashboardStack';
 import MonthsStack from './MonthsStack';
 import LoansStack from './LoansStack';
 import IncomeStack from './IncomeStack';
+
+// Screens
 import TrashScreen from '../screens/trash/TrashScreen';
-import type { AppTabsParamList } from './types';
+
+// Icons
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const Tab = createMaterialTopTabNavigator<AppTabsParamList>();
 
@@ -21,6 +27,7 @@ const icons: Record<keyof AppTabsParamList, string> = {
 };
 
 export default function AppTabs(): React.JSX.Element {
+    
     const insets = useSafeAreaInsets();
     // Swiping only makes sense at the root of whichever tab is active.
     // Once a nested stack (e.g. Months) is drilled in, this drops to false

@@ -1,4 +1,3 @@
-// navigation/RootNavigator.tsx
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { ActivityIndicator, View } from 'react-native';
@@ -7,6 +6,7 @@ import AuthStack from './AuthStack';
 import AppTabs from './AppTabs';
 
 export default function RootNavigator(): React.JSX.Element {
+    
     const { isAuthenticated, isLoading, hydrate } = useAuthStore();
 
     useEffect(() => {

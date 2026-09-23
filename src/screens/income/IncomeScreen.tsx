@@ -2,11 +2,11 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function LoginScreen(): React.JSX.Element {
+export default function IncomeScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      <Text>Login screen placeholder</Text>
+      <Text style={styles.title}>Income</Text>
+      <Text>Income screen placeholder</Text>
     </SafeAreaView>
   );
 }

@@ -1,5 +1,4 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -8,16 +7,10 @@ import type { NavigationState } from '@react-navigation/native';
 import { useNavUiStore } from '../store/navUistore';
 import type { DashboardStackParamList } from './types';
 
-const Stack = createNativeStackNavigator<DashboardStackParamList>();
+// Screens
+import DashboardScreen from "../screens/dashboard/Dashboard";
 
-function DashboardScreen(): React.JSX.Element {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-      <Text>Dashboard screen placeholder</Text>
-    </SafeAreaView>
-  );
-}
+const Stack = createNativeStackNavigator<DashboardStackParamList>();
 
 export default function DashboardStack(): React.JSX.Element {
   const setActiveStackDepth = useNavUiStore((state) => state.setActiveStackDepth);
@@ -38,17 +31,3 @@ export default function DashboardStack(): React.JSX.Element {
 
 export type DashboardScreenProps<T extends keyof DashboardStackParamList> =
   NativeStackScreenProps<DashboardStackParamList, T>;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-});
