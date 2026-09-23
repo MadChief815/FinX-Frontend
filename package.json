@@ -1,5 +1,5 @@
 {
-  "name": "finx_pulse_frontend",
+  "name": "finx",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
