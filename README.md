@@ -1,15 +1,17 @@
 # Finx Pulse Frontend
 
-Frontend application for **Finx Pulse**, a modern financial platform.
+Frontend mobile application for **Finx Pulse**, a modern financial platform built with **React Native and Expo**.
 
-The frontend provides the user interface, dashboards, financial insights, and communicates with the [Finx Pulse Backend](https://github.com/MadChief815/FinX-Pulse-Backend).
+The application provides the user interface, dashboards, financial insights, and communicates with the [Finx Pulse Backend](https://github.com/MadChief815/FinX-Pulse-Backend).
 
 ## Tech Stack
 
-* React
+* React Native
+* Expo
 * TypeScript
-* Vite
+* React Navigation
 * REST API
+* Expo Prebuild
 
 ## Getting Started
 
@@ -31,16 +33,61 @@ npm install
 Create a `.env` file and configure the backend API URL:
 
 ```env
-VITE_API_URL=http://127.0.0.1:8000
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-### 4. Start development server
+> **Note:** When running the Android application on a physical device or Android emulator, `127.0.0.1` refers to the device/emulator itself. Use your computer's local network IP when required.
+
+For example:
+
+```env
+EXPO_PUBLIC_API_URL=http://192.168.1.100:8000
+```
+
+### 4. Start the development server
 
 ```bash
-npm run dev
+npm start
 ```
 
-The application will be available at the URL shown in your terminal.
+You can then run the application on:
+
+* Android emulator
+* Physical Android device
+* iOS simulator (macOS)
+* Physical iOS device (macOS)
+
+### 5. Expo Prebuild
+
+This project uses **Expo Prebuild** to generate the native Android and iOS projects.
+
+Generate the native projects with:
+
+```bash
+npx expo prebuild
+```
+
+To regenerate the native projects:
+
+```bash
+npx expo prebuild --clean
+```
+
+> `--clean` removes and regenerates the existing native `android` and `ios` directories.
+
+### 6. Run Android
+
+```bash
+npx expo run:android
+```
+
+### 7. Run iOS
+
+```bash
+npx expo run:ios
+```
+
+> iOS builds require macOS and Xcode.
 
 ## Backend
 
