@@ -1,8 +1,8 @@
-# Finx Pulse Frontend
+# FinX Frontend
 
-Frontend mobile application for **Finx Pulse**, a modern financial platform built with **React Native and Expo**.
+Frontend mobile application for **FinX**, a modern financial platform built with **React Native and Expo**.
 
-The application provides the user interface, dashboards, financial insights, and communicates with the [Finx Pulse Backend](https://github.com/MadChief815/FinX-Pulse-Backend).
+The application provides the user interface, dashboards, financial insights, and communicates with the [Finx Backend](https://github.com/MadChief815/FinX-Backend).
 
 ## Tech Stack
 
@@ -18,8 +18,8 @@ The application provides the user interface, dashboards, financial insights, and
 ### 1. Clone
 
 ```bash
-git clone https://github.com/MadChief815/FinX-Pulse-Frontend.git
-cd FinX-Pulse-Frontend
+git clone https://github.com/MadChief815/FinX-Frontend.git
+cd FinX-Frontend
 ```
 
 ### 2. Install dependencies
@@ -91,9 +91,9 @@ npx expo run:ios
 
 ## Backend
 
-This frontend requires the **Finx Pulse Backend**:
+This frontend requires the **FinX Backend**:
 
-https://github.com/MadChief815/FinX-Pulse-Backend
+https://github.com/MadChief815/FinX-Backend
 
 ## License
 
