@@ -6,7 +6,7 @@
     "splash": {
       "image": "./src/assets/SplashScreen/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#281D39"
+      "backgroundColor": "#1C1431"
     },
     "plugins": [
       [
@@ -14,7 +14,7 @@
         {
           "image": "./src/assets/SplashScreen/splash-logo.png",
           "resizeMode": "contain",
-          "backgroundColor": "#281D39"
+          "backgroundColor": "#1C1431"
         }
       ]
     ],
