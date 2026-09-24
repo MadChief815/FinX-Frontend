@@ -1,5 +1,6 @@
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ms, s, vs } from '../utils/Responsive';
 
 interface HeaderProps {
   title: string;
@@ -14,7 +15,7 @@ export default function Header({ title, onBackPress }: HeaderProps) {
         onPress={onBackPress}
         activeOpacity={0.7}
       >
-        <Ionicons name="chevron-back" size={20} color="#171717" />
+        <Ionicons name="chevron-back" size={ms(24)} color="#171717" />
       </TouchableOpacity>
 
       <Text style={styles.title}>{title}</Text>

@@ -1,6 +1,7 @@
 import { TextStyle } from 'react-native';
 import { Colors } from './Colors';
 import { Fonts } from './Typography';
+import { ms } from './Responsive';
 
 type FontWeightKey = keyof typeof Fonts;
 type ColorValue = string;
@@ -9,11 +10,15 @@ const createTextStyle = (
     fontSize: number,
     weight: FontWeightKey,
     lineHeightRatio: number = 1.4,
-): TextStyle => ({
-    fontFamily: Fonts[weight],
-    fontSize,
-    lineHeight: Math.round(fontSize * lineHeightRatio),
-});
+): TextStyle => {
+    const scaledSize = ms(fontSize);
+
+    return {
+        fontFamily: Fonts[weight],
+        fontSize: scaledSize,
+        lineHeight: Math.round(scaledSize * lineHeightRatio),
+    };
+};
 
 // Base styles: named by size + weight (color is applied separately)
 export const TextStyles = {
