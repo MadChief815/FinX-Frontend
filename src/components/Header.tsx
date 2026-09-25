@@ -25,7 +25,7 @@ export default function Header({ title, onBackPress }: HeaderProps) {
 
 const styles = StyleSheet.create({
   container: {
-    height: 60,
+    height: vs(60),
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -33,10 +33,10 @@ const styles = StyleSheet.create({
 
   backButton: {
     position: 'absolute',
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    left: s(16),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
     borderWidth: 1,
     borderColor: '#D4D4D4',
     justifyContent: 'center',
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontWeight: '600',
   },
 });
