@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ms, s, vs } from '../../utils/Responsive';
 
 export default function LoansScreen(): React.JSX.Element {
   return (
@@ -16,11 +17,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: s(24),
+    paddingVertical: vs(24),
   },
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: vs(8),
   },
 });
