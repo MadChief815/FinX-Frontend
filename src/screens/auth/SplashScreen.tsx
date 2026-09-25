@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { s } from '../../utils/Responsive';
 
 const GRADIENT_COLORS = ['#57435C', '#130C2A'] as const;
 
@@ -31,7 +32,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 	},
 	logo: {
-		height: 190,
-		width: 190,
+		height: s(190),
+		width: s(190),
 	},
 });
