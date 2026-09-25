@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Components
 import Header from '../../components/Header';
+import { ms, vs } from '../../utils/Responsive';
 
 export default function RegisterScreen(): React.JSX.Element {
   return (
@@ -20,8 +21,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: vs(8),
   },
 });
