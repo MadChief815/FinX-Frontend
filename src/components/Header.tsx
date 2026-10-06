@@ -1,31 +1,43 @@
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+
+// Icons
 import { Ionicons } from '@expo/vector-icons';
+
+// Components
 import { ms, s, vs } from '../utils/Responsive';
+import { TextPresets } from '../utils/TextStyles';
+import { Colors } from '../utils/Colors';
 
 interface HeaderProps {
   title: string;
   onBackPress?: () => void;
+  back: boolean;
 }
 
-export default function Header({ title, onBackPress }: HeaderProps) {
+export default function Header({ title, onBackPress, back }: HeaderProps) {
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={onBackPress}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="chevron-back" size={ms(24)} color="#171717" />
-      </TouchableOpacity>
 
-      <Text style={styles.title}>{title}</Text>
+      {/* Back Button */}
+      {back === true && (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBackPress}
+          activeOpacity={0.5}
+        >
+          <Ionicons name="chevron-back" size={ms(24)} color={Colors.neutral[100]} />
+        </TouchableOpacity>
+      )}
+
+      {/* Header Title */}
+      <Text style={TextPresets.heading}>{title}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    height: vs(60),
+    height: vs(64),
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -33,18 +45,13 @@ const styles = StyleSheet.create({
 
   backButton: {
     position: 'absolute',
-    left: s(16),
-    width: s(40),
-    height: s(40),
-    borderRadius: s(20),
+    left: s(20),
+    width: s(48),
+    height: s(48),
+    borderRadius: s(24),
     borderWidth: 1,
-    borderColor: '#D4D4D4',
+    borderColor: '#E3E9ED',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  title: {
-    fontSize: ms(20),
-    fontWeight: '600',
   },
 });

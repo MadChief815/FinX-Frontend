@@ -9,7 +9,8 @@ import { ms, vs } from '../../utils/Responsive';
 export default function RegisterScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
-      <Header title='Sign In'/>
+      {/* Header */}
+      <Header title='Sign In' back={true} />
       <Text style={styles.title}>Register</Text>
       <Text>Register screen placeholder</Text>
     </SafeAreaView>

@@ -22,47 +22,52 @@ const createTextStyle = (
 
 // Base styles: named by size + weight (color is applied separately)
 export const TextStyles = {
-    size32Bold: createTextStyle(32, 'bold', 1.25),
-    size28Bold: createTextStyle(28, 'bold', 1.3),
 
-    size24Bold: createTextStyle(24, 'bold', 1.3),
-    size24SemiBold: createTextStyle(24, 'semiBold', 1.3),
+    Bold32: createTextStyle(32, 'bold', 1.25),
+    
+    Bold28: createTextStyle(28, 'bold', 1.3),
 
-    size20Bold: createTextStyle(20, 'bold'),
-    size20SemiBold: createTextStyle(20, 'semiBold'),
+    Bold24: createTextStyle(24, 'bold', 1.3),
+    SemiBold24: createTextStyle(24, 'semiBold', 1.3),
 
-    size18SemiBold: createTextStyle(18, 'semiBold'),
-    size18Medium: createTextStyle(18, 'medium'),
+    Bold20: createTextStyle(20, 'bold'),
+    SemiBold20: createTextStyle(20, 'semiBold'),
 
-    size16Bold: createTextStyle(16, 'bold'),
-    size16SemiBold: createTextStyle(16, 'semiBold'),
-    size16Medium: createTextStyle(16, 'medium'),
-    size16Regular: createTextStyle(16, 'regular', 1.5),
+    SemiBold18: createTextStyle(18, 'semiBold'),
+    Medium18: createTextStyle(18, 'medium'),
 
-    size14SemiBold: createTextStyle(14, 'semiBold'),
-    size14Medium: createTextStyle(14, 'medium'),
-    size14Regular: createTextStyle(14, 'regular', 1.5),
+    Bold16: createTextStyle(16, 'bold'),
+    SemiBold16: createTextStyle(16, 'semiBold'),
+    Medium16: createTextStyle(16, 'medium'),
+    Regular16: createTextStyle(16, 'regular', 1.5),
 
-    size12SemiBold: createTextStyle(12, 'semiBold'),
-    size12Medium: createTextStyle(12, 'medium'),
-    size12Regular: createTextStyle(12, 'regular', 1.5),
+    SemiBold14: createTextStyle(14, 'semiBold'),
+    Medium14: createTextStyle(14, 'medium'),
+    Regular14: createTextStyle(14, 'regular', 1.5),
+
+    SemiBold12: createTextStyle(12, 'semiBold'),
+    Medium12: createTextStyle(12, 'medium'),
+    Regular12: createTextStyle(12, 'regular', 1.5),
 } as const;
 
 // Combine any base style with any color
-export const withColor = (style: TextStyle, color: ColorValue): TextStyle => ({
+export const withColor = (
+    style: TextStyle,
+    color: ColorValue
+): TextStyle => ({
     ...style,
     color,
 });
 
 // Semantic aliases: use these for consistency across screens
 export const TextPresets = {
-    heading: withColor(TextStyles.size24Bold, Colors.neutral[100]),
-    title: withColor(TextStyles.size18SemiBold, Colors.neutral[90]),
-    body: withColor(TextStyles.size16Regular, Colors.neutral[80]),
-    bodyMedium: withColor(TextStyles.size16Medium, Colors.neutral[80]),
-    caption: withColor(TextStyles.size12Regular, Colors.neutral[60]),
-    label: withColor(TextStyles.size14Medium, Colors.neutral[70]),
-    button: withColor(TextStyles.size16SemiBold, Colors.neutral[10]),
-    link: withColor(TextStyles.size14SemiBold, Colors.brand.orchid),
-    error: withColor(TextStyles.size12Regular, Colors.status.error),
+    heading: withColor(TextStyles.SemiBold18, Colors.neutral[100]),
+    title: withColor(TextStyles.SemiBold18, Colors.neutral[90]),
+    body: withColor(TextStyles.Regular16, Colors.neutral[80]),
+    bodyMedium: withColor(TextStyles.Medium16, Colors.neutral[80]),
+    caption: withColor(TextStyles.Regular12, Colors.neutral[60]),
+    label: withColor(TextStyles.Medium14, Colors.neutral[70]),
+    button: withColor(TextStyles.SemiBold16, Colors.neutral[10]),
+    link: withColor(TextStyles.SemiBold14, Colors.brand.orchid),
+    error: withColor(TextStyles.Regular12, Colors.status.error),
 } as const;
