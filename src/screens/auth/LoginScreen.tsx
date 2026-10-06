@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../../components/Header';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
+import { TextStyleIOS } from 'react-native';
+import { Colors } from '../../utils/Colors';
 
 export default function LoginScreen(): React.JSX.Element {
   return (
