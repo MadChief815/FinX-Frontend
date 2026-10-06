@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 // Components
 import Header from '../../components/Header';
@@ -228,6 +228,16 @@ export default function LoginScreen(): React.JSX.Element {
   const [passwordError, setPasswordError] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setEmail('');
+      setPassword('');
+      setEmailError('');
+      setPasswordError('');
+      setPasswordVisible(false);
+    }, []),
+  );
 
   // Setting an error to '' when it is already '' bails out, so no extra re-render.
   const handleEmailChange = useCallback((value: string) => {
