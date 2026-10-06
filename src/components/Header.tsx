@@ -14,7 +14,11 @@ interface HeaderProps {
   back: boolean;
 }
 
-export default function Header({ title, onBackPress, back }: HeaderProps) {
+export default function Header({
+  title,
+  onBackPress,
+  back,
+}: HeaderProps) {
   return (
     <View style={styles.container}>
 
@@ -25,12 +29,19 @@ export default function Header({ title, onBackPress, back }: HeaderProps) {
           onPress={onBackPress}
           activeOpacity={0.5}
         >
-          <Ionicons name="chevron-back" size={ms(24)} color={Colors.neutral[100]} />
+          <Ionicons
+            name="chevron-back"
+            size={ms(24)}
+            color={Colors.neutral[100]}
+          />
         </TouchableOpacity>
       )}
 
       {/* Header Title */}
-      <Text style={TextPresets.heading}>{title}</Text>
+      <Text style={TextPresets.heading}>
+        {title}
+      </Text>
+
     </View>
   );
 }
@@ -38,16 +49,21 @@ export default function Header({ title, onBackPress, back }: HeaderProps) {
 const styles = StyleSheet.create({
   container: {
     height: vs(64),
+    // width: width,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+
+    // Bottom border only
+    borderBottomWidth: 1,
+    borderBottomColor: '#E3E9ED',
   },
 
   backButton: {
     position: 'absolute',
     left: s(20),
-    width: s(48),
-    height: s(48),
+    width: s(40),
+    height: s(40),
     borderRadius: s(24),
     borderWidth: 1,
     borderColor: '#E3E9ED',

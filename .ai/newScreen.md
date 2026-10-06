@@ -14,7 +14,7 @@ Core (always):
 1. All screens MUST be TypeScript `.tsx` files. Never create `.js` or `.jsx` screens.
 2. Root container MUST use `screenStyles.container`.
 3. Reuse `Header` for screen headers. Do not create another header unless required.
-4. Use `TextStyles` for typography. Do not duplicate existing text styles.
+4. Use `TextStyles` for typography. Do not duplicate existing text styles. Create new textstyles inside TextStyles only when the requested Text Style is not availabl.
 5. Use `Colors` for colors. Do not hard-code colors when an existing color exists.
 6. Use `ms`, `s`, `vs` from `Responsive` for responsive sizing/spacing where appropriate.
 7. Shared component/utility imports MUST be under `// Components`.
@@ -30,6 +30,7 @@ Core (always):
 17. Consider accessibility, keyboard behavior, and touch targets.
 18. Keep code simple, maintainable, responsive, and consistent with existing screens.
 19. Use current React Native and TypeScript security/best-practice standards.
+20. Don't build or run anything in expo or project. Just only write codes.
 
 Screen pattern:
 

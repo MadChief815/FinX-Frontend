@@ -1,0 +1,112 @@
+Generete me this Screen following newScreen.md instructions.
+
+Screen details to build 
+# Sign In Screen
+## Welcome
+- Title: `Welcome back`
+- Size:  24
+- Weight: semi bold
+- Color: neutral 100
+- Margin top: 32px
+- Margin bottom: `8px`
+- Description: `Sign in to continue`
+- Size: `14px`
+- Weight: regular
+- Color: neutral 70
+- Margin bottom: 48px
+
+## Email
+
+- Label: `Email Address`
+- Label size: `14px`
+- Label weight: semi bold
+- Label color: neutral 100
+- Label margin bottom: `8px`
+- Input width: all available in container
+- Input height: `52px`
+- Background: neutral 10
+- Border: `1px`
+- Border color: neutral 20
+- Radius: `20px`
+- Font size: `12px`
+- Horizontal padding: `16px`
+- Text color: neutral 70
+- Margin bottom: `16px`
+
+## Password
+
+- Label: `Password`
+- Label size: same as email
+- Label weight: same as email
+- Label color: same as email
+- Label margin bottom: same as email
+- Input width: same as email
+- Input height: same as email
+- Background: same as email
+- Border: same as email
+- Border color: same as email
+- Radius: same as email
+- Horizontal padding: `16px`
+- Font size: same as email
+- Text color:same as email
+
+### Password Eye Icon
+- FontAwesome5 eye and eye-slash
+- Size: `24px`
+- Color: neutral 100
+- Right padding: `16px`
+- Touch target: `44px × 44px`
+
+## Forgot Password
+
+- Text: `Forgot Password?`
+- Font size: `14px`
+- Weight: medoim
+- Color: brand plum
+- Alignment: `right`
+- Margin top: `16px`
+- Margin bottom: 34px
+
+## Sign In Button
+
+- Width: all available in container
+- Height: `48px`
+- Background: deep plum
+- Text color: neutral 10
+- Font size: `16px`
+- Font weight: medium
+- Radius: `8px`
+
+## Sign Up
+
+- Container margin top: `16px`
+- Text size: 16px
+- Text color: neutral 70
+- Action: `Sign Up`
+- Action weight: medium
+- Action color: brand teal
+
+## Social Sign In
+
+- Text: `Or sign in with`
+- Font size: `14px`
+- Weight: medium
+- Color: neutral 60
+- Margin top: `24px`
+- Margin bottom: `14px`
+
+### Google
+
+- Width: `48px`
+- Height: `48px`
+- Background: neutral 60
+- Radius: 50%
+- Icon size: `24px`
+
+### Facebook
+
+- Width: same as google
+- Height: same as google
+- Background: same as google
+- Radius: same as google
+- Icon size: same as google

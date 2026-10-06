@@ -9,6 +9,6 @@ export const screenStyles =
         container: {
             flex: 1,
             backgroundColor: Colors.neutral[10],
-            paddingHorizontal: s(20)
+            paddingHorizontal: s(24)
         }
     });
