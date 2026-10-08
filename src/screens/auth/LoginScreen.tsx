@@ -20,8 +20,11 @@ import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
-import { showErrorToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { getApiErrorMessage } from '../../utils/apiError';
 import type { AuthStackParamList } from '../../navigation/types';
+import { login as loginUser } from '../../api/adapters/auth.adapter';
+import { useAuthStore } from '../../store/authStore';
 
 // Icons
 import { Ionicons } from '@expo/vector-icons';
@@ -30,15 +33,9 @@ import Google_Icon from '../../assets/AuthScreens/Google.svg';
 
 type LoginNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
-/* ---------- Static helpers (created once, not on every render) ---------- */
+/* Static helpers (created once, not on every render) */
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const validateEmail = (value: string): string => {
-  if (!value) return 'Enter your email address.';
-  if (!EMAIL_REGEX.test(value)) return 'Enter a valid email address.';
-  return '';
-};
 
 const validatePassword = (value: string): string => {
   if (!value) return 'Enter your password.';
@@ -50,7 +47,7 @@ const showUnavailableMessage = (feature: string): void => {
   showErrorToast(`${feature} is not available yet. Please try again later.`);
 };
 
-/* ---------- Memoized pieces ---------- */
+/* Memoized pieces */
 
 type EmailFieldProps = {
   value: string;
@@ -67,7 +64,7 @@ const EmailField = memo(function EmailField({
 }: EmailFieldProps) {
   return (
     <>
-      <Text style={styles.label}>Email Address</Text>
+      <Text style={styles.label}>Email or Username</Text>
       <TextInput
         accessibilityLabel="Email Address"
         autoCapitalize="none"
@@ -77,7 +74,7 @@ const EmailField = memo(function EmailField({
         keyboardType="email-address"
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
-        placeholder="Enter your email"
+        placeholder="Enter your email or username"
         placeholderTextColor={Colors.neutral[60]}
         returnKeyType="next"
         style={error ? styles.inputWithError : styles.input}
@@ -216,7 +213,7 @@ const SignInButton = memo(function SignInButton({
   );
 });
 
-/* ---------- Screen ---------- */
+/*  Screen  */
 
 export default function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<LoginNavigationProp>();
@@ -256,7 +253,12 @@ export default function LoginScreen(): React.JSX.Element {
   const onForgotPassword = useCallback(() => showUnavailableMessage('Password recovery'), []);
 
   const handleSignIn = useCallback(async (): Promise<void> => {
-    const nextEmailError = validateEmail(email.trim());
+    const identifier = email.trim();
+    const nextEmailError = !identifier
+      ? 'Enter your email address or username.'
+      : identifier.includes('@') && !EMAIL_REGEX.test(identifier)
+        ? 'Enter a valid email address.'
+        : '';
     const nextPasswordError = validatePassword(password);
 
     setEmailError(nextEmailError);
@@ -266,7 +268,11 @@ export default function LoginScreen(): React.JSX.Element {
 
     setIsSubmitting(true);
     try {
-      showErrorToast('Sign-in is not available yet. Please try again later.');
+      const session = await loginUser({ identifier, password });
+      await useAuthStore.getState().login(session.accessToken, session.refreshToken);
+      showSuccessToast('You are now signed in.');
+    } catch (error) {
+      showErrorToast(getApiErrorMessage(error, 'Unable to sign in. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -336,7 +342,7 @@ export default function LoginScreen(): React.JSX.Element {
   );
 }
 
-/* ---------- Styles ---------- */
+/*  Styles  */
 
 const baseInput = {
   ...TextStyles.SemiBold12,

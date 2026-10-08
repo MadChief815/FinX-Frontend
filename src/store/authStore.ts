@@ -4,27 +4,43 @@ import * as SecureStore from 'expo-secure-store';
 
 interface AuthState {
     token: string | null;
+    refreshToken: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     hydrate: () => Promise<void>;
-    login: (token: string) => Promise<void>;
+    login: (token: string, refreshToken: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
 export const useAuthStore = create < AuthState > ((set) => ({
     token: null,
+    refreshToken: null,
     isAuthenticated: false,
     isLoading: true,
     hydrate: async () => {
-        const token = await SecureStore.getItemAsync('accessToken');
-        set({ token, isAuthenticated: !!token, isLoading: false });
+        try {
+            const [token, refreshToken] = await Promise.all([
+                SecureStore.getItemAsync('accessToken'),
+                SecureStore.getItemAsync('refreshToken'),
+            ]);
+            set({ token, refreshToken, isAuthenticated: !!token, isLoading: false });
+        } catch (error) {
+            set({ isLoading: false });
+            throw error;
+        }
     },
-    login: async (token: string) => {
-        await SecureStore.setItemAsync('accessToken', token);
-        set({ token, isAuthenticated: true });
+    login: async (token: string, refreshToken: string) => {
+        await Promise.all([
+            SecureStore.setItemAsync('accessToken', token),
+            SecureStore.setItemAsync('refreshToken', refreshToken),
+        ]);
+        set({ token, refreshToken, isAuthenticated: true });
     },
     logout: async () => {
-        await SecureStore.deleteItemAsync('accessToken');
-        set({ token: null, isAuthenticated: false });
+        await Promise.all([
+            SecureStore.deleteItemAsync('accessToken'),
+            SecureStore.deleteItemAsync('refreshToken'),
+        ]);
+        set({ token: null, refreshToken: null, isAuthenticated: false });
     },
 }));

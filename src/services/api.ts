@@ -1,13 +1,16 @@
 import axios from 'axios';
-import Config from 'react-native-config';
+import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-  baseURL: Config.API_URL,
+  baseURL: process.env.EXPO_PUBLIC_API_URL,
   timeout: 10000,
 });
 
 api.interceptors.request.use((config) => {
-  // attach auth token here once you have an auth store
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
+  }
   return config;
 });
 

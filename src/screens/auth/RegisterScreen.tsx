@@ -20,17 +20,18 @@ import Header from '../../components/Header';
 import Facebook_Icon from '../../assets/AuthScreens/Facebook.svg';
 import Google_Icon from '../../assets/AuthScreens/Google.svg';
 import type { AuthStackParamList } from '../../navigation/types';
+import { register as registerUser } from '../../api/adapters/auth.adapter';
+import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
-import { showErrorToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 type RegisterNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USER_NAME_REGEX = /^[A-Za-z0-9]+$/;
-
 const showUnavailableMessage = (feature: string): void => {
   showErrorToast(`${feature} is not available yet. Please try again later.`);
 };
@@ -62,13 +63,10 @@ export default function RegisterScreen(): React.JSX.Element {
   );
 
   const handleSignUp = async (): Promise<void> => {
-    const nextUserNameError = !userName
+    const normalizedUserName = userName.trim();
+    const nextUserNameError = !normalizedUserName
       ? 'Enter your username.'
-      : userName.length < 6 || userName.length > 24
-        ? 'Username must be between 6 and 24 characters.'
-        : !USER_NAME_REGEX.test(userName)
-          ? 'Username can only contain letters and numbers, with no spaces or symbols.'
-          : '';
+      : '';
     const normalizedEmail = email.trim();
     const nextEmailError = !normalizedEmail
       ? 'Enter your email address.'
@@ -89,7 +87,15 @@ export default function RegisterScreen(): React.JSX.Element {
 
     setIsSubmitting(true);
     try {
-      showErrorToast('Sign-up is not available yet. Please try again later.');
+      const session = await registerUser({
+        email: normalizedEmail,
+        username: normalizedUserName,
+        password,
+      });
+      await useAuthStore.getState().login(session.accessToken, session.refreshToken);
+      showSuccessToast('Your account has been created.');
+    } catch (error) {
+      showErrorToast(getApiErrorMessage(error, 'Unable to create your account. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }

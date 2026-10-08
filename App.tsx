@@ -30,7 +30,12 @@ export default function App(): React.JSX.Element | null {
   const hydrate = useAuthStore((state) => state.hydrate);
 
   useEffect(() => {
-    void hydrate();
+    void hydrate().catch((error: unknown) => {
+      showErrorToast(
+        error instanceof Error ? error.message : 'Unable to restore your saved session.',
+        'Session error',
+      );
+    });
   }, [hydrate]);
 
   useEffect(() => {

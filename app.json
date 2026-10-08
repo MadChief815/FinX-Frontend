@@ -1,5 +1,7 @@
 {
   "expo": {
+    "jsEngine": "hermes",
+    "newArchEnabled": true,
     "name": "FinX",
     "slug": "FinX",
     "version": "1.0.0",
