@@ -35,6 +35,8 @@ type LoginNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'
 
 /* Static helpers (created once, not on every render) */
 
+console.log('API URL:', process.env.EXPO_PUBLIC_API_URL);
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const validatePassword = (value: string): string => {
