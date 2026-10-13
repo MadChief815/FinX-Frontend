@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 
 // Components
 import Header from '../../components/Header';
@@ -16,6 +15,10 @@ import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
 import { showErrorToast } from '../../utils/toast';
+
+
+// Icons
+import { Ionicons } from '@expo/vector-icons';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -30,7 +33,8 @@ interface StatItem {
   label: string;
   amount: number;
   icon: IoniconName;
-  badgeColor: string;
+  iconColor: string;
+  tint: string;
 }
 
 interface MoneySource {
@@ -40,8 +44,11 @@ interface MoneySource {
   icon: IoniconName;
 }
 
-// No existing token for a translucent white overlay on the dark cards
-const OVERLAY_LIGHT = 'rgba(255, 255, 255, 0.08)';
+const OVERLAY_LIGHT = 'rgba(255, 255, 255, 0.10)';
+const SCREEN_BG = '#F7F4FC';
+const PLUM_TINT = 'rgba(109, 40, 217, 0.08)';
+const CARD_BORDER = 'rgba(109, 40, 217, 0.10)';
+const ERROR_TINT = 'rgba(239, 68, 68, 0.10)';
 
 const BANK_MONEY = 12450;
 const CASH_MONEY = 1750;
@@ -59,14 +66,16 @@ const statItems: StatItem[] = [
     label: 'INCOME',
     amount: 5400,
     icon: 'arrow-down',
-    badgeColor: Colors.brand.teal,
+    iconColor: Colors.brand.deepPlum,
+    tint: PLUM_TINT,
   },
   {
     id: 'loans',
     label: 'LOANS',
     amount: 2100,
     icon: 'arrow-up',
-    badgeColor: Colors.status.error,
+    iconColor: Colors.status.error,
+    tint: ERROR_TINT,
   },
 ];
 
@@ -88,14 +97,27 @@ export default function DashboardScreen(): React.JSX.Element {
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
 
-  const toggleItem = (
-    itemId: string,
-    setter: React.Dispatch<React.SetStateAction<string[]>>,
-  ): void => {
-    setter((current) =>
-      current.includes(itemId)
-        ? current.filter((id) => id !== itemId)
-        : [...current, itemId],
+  const toggleMonth = (monthId: string): void => {
+    setSelectedMonths((current) =>
+      current.includes(monthId)
+        ? current.filter((id) => id !== monthId)
+        : [...current, monthId],
+    );
+  };
+
+  const toggleSource = (sourceId: string): void => {
+    const isSelected = selectedSources.includes(sourceId);
+
+    // Block selecting a source until at least one month is chosen
+    if (!isSelected && selectedMonths.length === 0) {
+      showErrorToast('Please select a month first');
+      return;
+    }
+
+    setSelectedSources((current) =>
+      isSelected
+        ? current.filter((id) => id !== sourceId)
+        : [...current, sourceId],
     );
   };
 
@@ -162,7 +184,7 @@ export default function DashboardScreen(): React.JSX.Element {
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                 />
-                <Text style={styles.heroTotalLabel}>BANK MONEY</Text>
+                <Text style={styles.heroTotalLabel}>BANK</Text>
               </View>
               <Text style={styles.heroTotalAmount}>{formatCurrency(BANK_MONEY)}</Text>
             </View>
@@ -176,7 +198,7 @@ export default function DashboardScreen(): React.JSX.Element {
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                 />
-                <Text style={styles.heroTotalLabel}>CASH MONEY</Text>
+                <Text style={styles.heroTotalLabel}>CASH</Text>
               </View>
               <Text style={styles.heroTotalAmount}>{formatCurrency(CASH_MONEY)}</Text>
             </View>
@@ -196,11 +218,11 @@ export default function DashboardScreen(): React.JSX.Element {
                 pressed && styles.cardPressed,
               ]}
             >
-              <View style={[styles.statBadge, { backgroundColor: item.badgeColor }]}>
+              <View style={[styles.statBadge, { backgroundColor: item.tint }]}>
                 <Ionicons
                   name={item.icon}
                   size={ms(16)}
-                  color={Colors.neutral[10]}
+                  color={item.iconColor}
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                 />
@@ -214,14 +236,16 @@ export default function DashboardScreen(): React.JSX.Element {
         {/* Financial Breakdown */}
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionTitle}>Financial Breakdown</Text>
+            <Text style={styles.sectionTitle}>Months</Text>
             <View style={styles.sectionPill}>
-              <Text style={styles.sectionPillText}>6 MONTHS</Text>
+              <Text style={styles.sectionPillText}>
+                {selectedMonths.length} SELECTED
+              </Text>
             </View>
           </View>
 
           <View style={styles.breakdownList}>
-            {breakdownItems.map((item) => {
+            {breakdownItems.map((item, index) => {
               const isChecked = selectedMonths.includes(item.id);
 
               return (
@@ -230,10 +254,10 @@ export default function DashboardScreen(): React.JSX.Element {
                   accessibilityRole="checkbox"
                   accessibilityLabel={`${item.month}, ${formatCurrency(item.amount)}`}
                   accessibilityState={{ checked: isChecked }}
-                  onPress={() => toggleItem(item.id, setSelectedMonths)}
+                  onPress={() => toggleMonth(item.id)}
                   style={({ pressed }) => [
                     styles.breakdownRow,
-                    isChecked && styles.breakdownRowChecked,
+                    index < breakdownItems.length - 1 && styles.breakdownRowDivider,
                     pressed && styles.cardPressed,
                   ]}
                 >
@@ -268,9 +292,9 @@ export default function DashboardScreen(): React.JSX.Element {
 
         {/* Money Sources */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, styles.moneySourcesTitle]}>
-            Money Sources
-          </Text>
+          <View style={styles.moneySourcesHeading}>
+            <Text style={styles.sectionTitle}>Money Source</Text>
+          </View>
           <View style={styles.moneySourceGrid}>
             {moneySources.map((source) => {
               const isSelected = selectedSources.includes(source.id);
@@ -281,7 +305,7 @@ export default function DashboardScreen(): React.JSX.Element {
                   accessibilityRole="checkbox"
                   accessibilityLabel={`${source.label}, ${formatCurrency(source.amount)}`}
                   accessibilityState={{ checked: isSelected }}
-                  onPress={() => toggleItem(source.id, setSelectedSources)}
+                  onPress={() => toggleSource(source.id)}
                   style={({ pressed }) => [
                     styles.moneySourceCard,
                     isSelected && styles.moneySourceCardSelected,
@@ -338,6 +362,7 @@ export default function DashboardScreen(): React.JSX.Element {
         {/* Calculated Balance */}
         <View style={styles.balanceCard}>
           <View style={styles.heroCircleLarge} />
+          <View style={styles.heroCircleSmall} />
 
           <View style={styles.heroHeader}>
             <Text style={styles.heroLabel}>CALCULATED BALANCE</Text>
@@ -378,7 +403,7 @@ export default function DashboardScreen(): React.JSX.Element {
               </>
             ) : (
               <Text style={styles.balanceHint}>
-                Select money sources and months to calculate your balance
+                Select months first, then money sources to calculate your balance
               </Text>
             )}
           </View>
@@ -388,9 +413,18 @@ export default function DashboardScreen(): React.JSX.Element {
   );
 }
 
+const cardShadow = {
+  shadowColor: Colors.brand.deepPlum,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.06,
+  shadowRadius: 12,
+  elevation: 2,
+} as const;
+
 const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: 0,
+    backgroundColor: SCREEN_BG,
   },
   scrollView: {
     flex: 1,
@@ -398,7 +432,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: s(20),
     paddingTop: vs(16),
-    paddingBottom: vs(120),
+    paddingBottom: vs(24),
   },
 
   // Hero
@@ -408,9 +442,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand.deepPlum,
     overflow: 'hidden',
     shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
     elevation: 10,
   },
   heroCircleLarge: {
@@ -439,19 +473,18 @@ const styles = StyleSheet.create({
   heroLabel: {
     ...TextStyles.SemiBold12,
     color: Colors.neutral[30],
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   heroIconChip: {
-    width: ms(34),
-    height: ms(34),
-    borderRadius: ms(12),
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: OVERLAY_LIGHT,
   },
   heroAmount: {
     ...TextStyles.Bold32,
-    fontFamily: 'monospace',
     color: Colors.neutral[10],
     marginTop: vs(10),
     marginBottom: vs(18),
@@ -460,7 +493,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: vs(12),
-    paddingHorizontal: s(14),
+    paddingHorizontal: s(16),
     borderRadius: ms(18),
     backgroundColor: OVERLAY_LIGHT,
   },
@@ -475,7 +508,7 @@ const styles = StyleSheet.create({
   heroTotalDivider: {
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
-    marginHorizontal: s(14),
+    marginHorizontal: s(16),
     backgroundColor: Colors.neutral[50],
   },
   heroTotalLabel: {
@@ -499,21 +532,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: s(16),
     borderRadius: ms(22),
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
     backgroundColor: Colors.neutral[10],
-    shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 4,
+    ...cardShadow,
   },
   cardPressed: {
-    opacity: 0.8,
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
   statBadge: {
     width: ms(34),
     height: ms(34),
-    borderRadius: ms(12),
+    borderRadius: ms(17),
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: vs(14),
@@ -531,12 +562,12 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    marginTop: vs(26),
+    marginTop: vs(28),
   },
   sectionHeading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: vs(12),
   },
   sectionTitle: {
@@ -544,48 +575,46 @@ const styles = StyleSheet.create({
     color: Colors.neutral[100],
   },
   sectionPill: {
-    paddingHorizontal: s(10),
-    paddingVertical: vs(4),
+    paddingHorizontal: s(12),
+    paddingVertical: vs(5),
     borderRadius: ms(20),
-    backgroundColor: Colors.background.lightGray,
+    backgroundColor: PLUM_TINT,
   },
   sectionPillText: {
     ...TextStyles.SemiBold12,
-    color: Colors.neutral[60],
+    color: Colors.brand.deepPlum,
     letterSpacing: 0.8,
   },
 
   // Breakdown
   breakdownList: {
-    gap: vs(10),
+    paddingHorizontal: s(14),
+    borderRadius: ms(18),
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: Colors.neutral[10],
+    ...cardShadow,
   },
   breakdownRow: {
     minHeight: vs(58),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: s(14),
-    borderRadius: ms(18),
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    backgroundColor: Colors.neutral[10],
-    shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 2,
+    paddingVertical: vs(8),
   },
-  breakdownRowChecked: {
-    borderColor: Colors.brand.deepPlum,
+  breakdownRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: CARD_BORDER,
   },
   checkbox: {
     width: ms(24),
     height: ms(24),
-    borderRadius: ms(8),
+    borderRadius: ms(12),
     borderWidth: 1.5,
     borderColor: Colors.neutral[50],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: s(12),
+    backgroundColor: Colors.neutral[10],
   },
   checkboxChecked: {
     borderColor: Colors.brand.deepPlum,
@@ -605,7 +634,7 @@ const styles = StyleSheet.create({
   },
 
   // Money sources
-  moneySourcesTitle: {
+  moneySourcesHeading: {
     marginBottom: vs(12),
   },
   moneySourceGrid: {
@@ -619,15 +648,14 @@ const styles = StyleSheet.create({
     minHeight: vs(112),
     padding: s(14),
     borderRadius: ms(22),
+    borderWidth: 1.5,
+    borderColor: CARD_BORDER,
     backgroundColor: Colors.neutral[10],
-    shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 4,
+    ...cardShadow,
   },
   moneySourceCardSelected: {
     backgroundColor: Colors.brand.deepPlum,
+    borderColor: Colors.brand.deepPlum,
   },
   moneySourceTop: {
     flexDirection: 'row',
@@ -638,10 +666,10 @@ const styles = StyleSheet.create({
   moneySourceIcon: {
     width: ms(34),
     height: ms(34),
-    borderRadius: ms(12),
+    borderRadius: ms(17),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.background.lightGray,
+    backgroundColor: PLUM_TINT,
   },
   moneySourceIconSelected: {
     backgroundColor: OVERLAY_LIGHT,
@@ -666,19 +694,18 @@ const styles = StyleSheet.create({
   // Calculated balance
   balanceCard: {
     padding: s(22),
-    marginTop: vs(26),
+    marginTop: vs(28),
     borderRadius: ms(28),
     backgroundColor: Colors.brand.deepPlum,
     overflow: 'hidden',
     shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
     elevation: 10,
   },
   balanceAmount: {
     ...TextStyles.Bold32,
-    fontFamily: 'monospace',
     color: Colors.neutral[10],
     marginTop: vs(10),
     marginBottom: vs(18),
@@ -690,7 +717,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: vs(12),
-    paddingHorizontal: s(14),
+    paddingHorizontal: s(16),
     borderRadius: ms(18),
     backgroundColor: OVERLAY_LIGHT,
   },
