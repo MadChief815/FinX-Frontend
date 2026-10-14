@@ -18,7 +18,7 @@ import { showErrorToast } from '../../utils/toast';
 
 
 // Icons
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -31,10 +31,10 @@ interface BreakdownItem {
 interface StatItem {
   id: string;
   label: string;
+  caption: string;
   amount: number;
   icon: IoniconName;
   iconColor: string;
-  tint: string;
 }
 
 interface MoneySource {
@@ -44,14 +44,42 @@ interface MoneySource {
   icon: IoniconName;
 }
 
+interface SavingsItem {
+  id: string;
+  label: string;
+  caption: string;
+  amount: number;
+  icon: IoniconName;
+}
+
 const OVERLAY_LIGHT = 'rgba(255, 255, 255, 0.10)';
 const SCREEN_BG = '#F7F4FC';
 const PLUM_TINT = 'rgba(109, 40, 217, 0.08)';
 const CARD_BORDER = 'rgba(109, 40, 217, 0.10)';
-const ERROR_TINT = 'rgba(239, 68, 68, 0.10)';
+const SAVINGS_BG = '#37018f34';
+const SAVINGS_BORDER = 'rgba(109, 40, 217, 0.18)';
+const SAVINGS_INNER = '#efe4ffa4';
+const SAVINGS_ICON_BG = '#f6f1fd';
 
 const BANK_MONEY = 12450;
 const CASH_MONEY = 1750;
+
+const savingsItems: SavingsItem[] = [
+  {
+    id: 'fixed-deposit',
+    label: 'FIXED DEPOSIT',
+    caption: 'Locked savings',
+    amount: 25000,
+    icon: 'lock-closed-outline',
+  },
+  {
+    id: 'flexible-savings',
+    label: 'FLEXIBLE SAVINGS',
+    caption: 'Access anytime',
+    amount: 8200,
+    icon: 'flash-outline',
+  },
+];
 
 const breakdownItems: BreakdownItem[] = [
   { id: 'june-2024', month: 'June 2024', amount: 3200 },
@@ -64,18 +92,18 @@ const statItems: StatItem[] = [
   {
     id: 'income',
     label: 'INCOME',
+    caption: 'This month',
     amount: 5400,
     icon: 'arrow-down',
     iconColor: Colors.brand.deepPlum,
-    tint: PLUM_TINT,
   },
   {
     id: 'loans',
     label: 'LOANS',
+    caption: 'This month',
     amount: 2100,
     icon: 'arrow-up',
     iconColor: Colors.status.error,
-    tint: ERROR_TINT,
   },
 ];
 
@@ -90,7 +118,7 @@ const formatCurrency = (value: number, decimals = 0): string => {
   const sign = value < 0 ? '-' : '';
   const [whole, fraction] = Math.abs(value).toFixed(decimals).split('.');
   const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${sign}$${withCommas}${fraction ? `.${fraction}` : ''}`;
+  return `${sign}Rs. ${withCommas}${fraction ? `.${fraction}` : ''}`;
 };
 
 export default function DashboardScreen(): React.JSX.Element {
@@ -135,6 +163,11 @@ export default function DashboardScreen(): React.JSX.Element {
       calculatedBalance: sources - months,
     };
   }, [selectedSources, selectedMonths]);
+
+  const totalSavings = useMemo(
+    () => savingsItems.reduce((sum, item) => sum + item.amount, 0),
+    [],
+  );
 
   const hasSelection = selectedSources.length > 0 || selectedMonths.length > 0;
   const isNegative = calculatedBalance < 0;
@@ -205,30 +238,87 @@ export default function DashboardScreen(): React.JSX.Element {
           </View>
         </View>
 
+        {/* Savings */}
+        <View style={styles.savingsCard}>
+          <View style={styles.savingsHeader}>
+            <View style={styles.savingsHeaderText}>
+              <Text style={styles.savingsTitle}>Savings</Text>
+              <Text style={styles.savingsTotal}>{formatCurrency(totalSavings)}</Text>
+            </View>
+            <View style={styles.savingsHeaderChip}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={ms(18)}
+                color={Colors.brand.deepPlum}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+            </View>
+          </View>
+
+          <View style={styles.savingsRow}>
+            {savingsItems.map((item, index) => (
+              <React.Fragment key={item.id}>
+                {index > 0 && <View style={styles.savingsDivider} />}
+                <View
+                  style={styles.savingsItem}
+                  accessible
+                  accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
+                >
+                  <View style={styles.savingsItemIcon}>
+                    <Ionicons
+                      name={item.icon}
+                      size={ms(16)}
+                      color={Colors.brand.deepPlum}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
+                  </View>
+                  <Text style={styles.savingsItemLabel}>{item.label}</Text>
+                  <Text style={styles.savingsItemAmount}>
+                    {formatCurrency(item.amount)}
+                  </Text>
+                  <Text style={styles.savingsItemCaption}>{item.caption}</Text>
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+
         {/* Stats */}
         <View style={styles.statRow}>
           {statItems.map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="button"
-              accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
+              accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}, ${item.caption}`}
               onPress={handleNotDeveloped}
               style={({ pressed }) => [
                 styles.statCard,
                 pressed && styles.cardPressed,
               ]}
             >
-              <View style={[styles.statBadge, { backgroundColor: item.tint }]}>
+              <View style={styles.statTop}>
+                <View style={styles.statBadge}>
+                  <Ionicons
+                    name={item.icon}
+                    size={ms(16)}
+                    color={item.iconColor}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                </View>
                 <Ionicons
-                  name={item.icon}
-                  size={ms(16)}
-                  color={item.iconColor}
+                  name="chevron-forward"
+                  size={ms(18)}
+                  color={Colors.neutral[50]}
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                 />
               </View>
               <Text style={styles.statLabel}>{item.label}</Text>
               <Text style={styles.statAmount}>{formatCurrency(item.amount)}</Text>
+              <Text style={styles.statCaption}>{item.caption}</Text>
             </Pressable>
           ))}
         </View>
@@ -522,6 +612,94 @@ const styles = StyleSheet.create({
     marginTop: vs(4),
   },
 
+  // Savings
+  savingsCard: {
+    marginTop: vs(16),
+    padding: s(18),
+    borderRadius: ms(22),
+    borderWidth: 1,
+    borderColor: SAVINGS_BORDER,
+    backgroundColor: SAVINGS_BG,
+    overflow: 'hidden',
+    shadowColor: Colors.brand.deepPlum,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 0,
+  },
+  savingsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(14),
+  },
+  savingsHeaderText: {
+    flex: 1,
+  },
+  savingsTitle: {
+    ...TextStyles.SemiBold12,
+    color: Colors.brand.deepPlum,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  savingsTotal: {
+    ...TextStyles.Bold24,
+    color: Colors.neutral[100],
+    marginTop: vs(4),
+  },
+  savingsHeaderChip: {
+    width: ms(36),
+    height: ms(36),
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: "#f8f5fd",
+  },
+  savingsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: vs(12),
+    paddingHorizontal: s(14),
+    borderRadius: ms(22),
+    overflow: 'hidden',
+    backgroundColor: SAVINGS_INNER,
+  },
+  savingsItem: {
+    flex: 1,
+  },
+  savingsDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginHorizontal: s(14),
+    backgroundColor: SAVINGS_BORDER,
+  },
+  savingsItemIcon: {
+    width: ms(30),
+    height: ms(30),
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: vs(8),
+    overflow: 'hidden',
+    backgroundColor: SAVINGS_ICON_BG,
+  },
+  savingsItemLabel: {
+    ...TextStyles.SemiBold12,
+    color: Colors.neutral[60],
+    letterSpacing: 0.8,
+  },
+  savingsItemAmount: {
+    ...TextStyles.Bold16,
+    color: Colors.neutral[100],
+    marginTop: vs(4),
+  },
+  savingsItemCaption: {
+    ...TextStyles.SemiBold12,
+    color: Colors.neutral[60],
+    marginTop: vs(2),
+  },
+
   // Stats
   statRow: {
     flexDirection: 'row',
@@ -541,13 +719,19 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
+  statTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(14),
+  },
   statBadge: {
     width: ms(34),
     height: ms(34),
     borderRadius: ms(17),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: vs(14),
+    backgroundColor: PLUM_TINT,
   },
   statLabel: {
     ...TextStyles.SemiBold12,
@@ -559,7 +743,11 @@ const styles = StyleSheet.create({
     color: Colors.neutral[100],
     marginTop: vs(4),
   },
-
+  statCaption: {
+    ...TextStyles.SemiBold12,
+    color: Colors.neutral[60],
+    marginTop: vs(2),
+  },
   // Sections
   section: {
     marginTop: vs(28),

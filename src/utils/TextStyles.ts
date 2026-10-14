@@ -35,6 +35,7 @@ export const TextStyles = {
 
     SemiBold18: createTextStyle(18, 'semiBold'),
     Medium18: createTextStyle(18, 'medium'),
+    Bold18: createTextStyle(18, 'bold'),
 
     Bold16: createTextStyle(16, 'bold'),
     SemiBold16: createTextStyle(16, 'semiBold'),
