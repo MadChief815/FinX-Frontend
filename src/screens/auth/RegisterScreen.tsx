@@ -17,10 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Components
 import Header from '../../components/Header';
-import Facebook_Icon from '../../assets/AuthScreens/Facebook.svg';
-import Google_Icon from '../../assets/AuthScreens/Google.svg';
 import type { AuthStackParamList } from '../../navigation/types';
-import { register as registerUser } from '../../api/adapters/auth.adapter';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
@@ -28,6 +25,13 @@ import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import { getApiErrorMessage } from '../../utils/apiError';
+
+// API
+import { register as registerUser } from '../../api/adapters/auth.adapter';
+
+// Icons
+import Facebook_Icon from '../../assets/AuthScreens/Facebook.svg';
+import Google_Icon from '../../assets/AuthScreens/Google.svg';
 
 type RegisterNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -227,7 +231,7 @@ export default function RegisterScreen(): React.JSX.Element {
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('Login')}
+                onPress={() => navigation.replace('Login')}
               >
                 <Text style={styles.accountPromptAction}>Sign In</Text>
               </TouchableOpacity>

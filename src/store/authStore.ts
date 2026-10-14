@@ -9,6 +9,7 @@ interface AuthState {
     isLoading: boolean;
     hydrate: () => Promise<void>;
     login: (token: string, refreshToken: string) => Promise<void>;
+    updateTokens: (token: string, refreshToken: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -30,6 +31,13 @@ export const useAuthStore = create < AuthState > ((set) => ({
         }
     },
     login: async (token: string, refreshToken: string) => {
+        await Promise.all([
+            SecureStore.setItemAsync('accessToken', token),
+            SecureStore.setItemAsync('refreshToken', refreshToken),
+        ]);
+        set({ token, refreshToken, isAuthenticated: true });
+    },
+    updateTokens: async (token: string, refreshToken: string) => {
         await Promise.all([
             SecureStore.setItemAsync('accessToken', token),
             SecureStore.setItemAsync('refreshToken', refreshToken),

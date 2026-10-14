@@ -39,3 +39,7 @@ yarn-error.*
 .env
 *.keystore
 *.jks
+
+
+# AI
+.ai/

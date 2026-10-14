@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,11 +14,25 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Components
+import { LoadingButton } from '../../components/LoadingButton';
+import { Skeleton } from '../../components/Skeleton';
 import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
-import { showErrorToast } from '../../utils/toast';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
+
+// API
+import {
+  EMPTY_DASHBOARD_DATA,
+  getDashboard,
+  updateDashboardAmounts,
+} from '../../api/adapters/dashboard.adapter';
+import type {
+  DashboardAccountAmounts,
+  DashboardData,
+} from '../../api/adapters/dashboard.adapter';
 
 // Icons
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -51,7 +66,6 @@ interface SavingsItem {
   id: string;
   label: string;
   caption: string;
-  amount: number;
   icon: IoniconName;
 }
 
@@ -60,67 +74,22 @@ const SCREEN_BG = '#F7F4FC';
 const PLUM_TINT = 'rgba(109, 40, 217, 0.08)';
 const CARD_BORDER = 'rgba(109, 40, 217, 0.10)';
 
-const BANK_MONEY = 12450;
-const CASH_MONEY = 1750;
-
 const savingsItems: SavingsItem[] = [
   {
     id: 'fixed-deposit',
     label: 'FIXED DEPOSIT',
     caption: 'Locked savings',
-    amount: 25000,
     icon: 'lock-closed-outline',
   },
   {
     id: 'flexible-savings',
     label: 'FLEXIBLE SAVINGS',
     caption: 'Access anytime',
-    amount: 8200,
     icon: 'flash-outline',
   },
 ];
 
-const breakdownItems: BreakdownItem[] = [
-  { id: 'june-2024', month: 'June 2024', amount: 3200 },
-  { id: 'may-2024', month: 'May 2024', amount: 2850 },
-  { id: 'april-2024', month: 'April 2024', amount: 3100 },
-  { id: 'march-2024', month: 'March 2024', amount: 2900 },
-];
-
-const statItems: StatItem[] = [
-  {
-    id: 'income',
-    label: 'INCOME',
-    caption: 'This month',
-    amount: 5400,
-    icon: 'arrow-down',
-    iconColor: Colors.brand.deepPlum,
-  },
-  {
-    id: 'loans',
-    label: 'LOANS',
-    caption: 'This month',
-    amount: 2100,
-    icon: 'arrow-up',
-    iconColor: Colors.status.error,
-  },
-];
-
-const moneySources: MoneySource[] = [
-  { id: 'bank', label: 'BANK', amount: 12450, icon: 'business-outline' },
-  { id: 'cash', label: 'CASH', amount: 1750, icon: 'cash-outline' },
-  { id: 'loans', label: 'LOANS', amount: 2100, icon: 'swap-horizontal-outline' },
-  { id: 'income', label: 'INCOME', amount: 5400, icon: 'trending-up-outline' },
-];
-
-interface AccountAmounts {
-  bank: number;
-  cash: number;
-  fixedDeposit: number;
-  flexibleSavings: number;
-}
-
-type AccountAmountKey = keyof AccountAmounts;
+type AccountAmountKey = keyof DashboardAccountAmounts;
 
 const ACCOUNT_AMOUNT_FIELDS: { key: AccountAmountKey; label: string }[] = [
   { key: 'bank', label: 'Bank' },
@@ -129,7 +98,7 @@ const ACCOUNT_AMOUNT_FIELDS: { key: AccountAmountKey; label: string }[] = [
   { key: 'flexibleSavings', label: 'Flexible savings' },
 ];
 
-const formatCurrency = (value: number, decimals = 0): string => {
+const formatCurrency = (value: number, decimals = 2): string => {
   const sign = value < 0 ? '-' : '';
   const [whole, fraction] = Math.abs(value).toFixed(decimals).split('.');
   const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -139,43 +108,102 @@ const formatCurrency = (value: number, decimals = 0): string => {
 export default function DashboardScreen(): React.JSX.Element {
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [accountAmounts, setAccountAmounts] = useState<AccountAmounts>({
-    bank: BANK_MONEY,
-    cash: CASH_MONEY,
-    fixedDeposit: 25000,
-    flexibleSavings: 8200,
-  });
+  const [dashboard, setDashboard] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
+  const [amountsAtModalOpen, setAmountsAtModalOpen] =
+    useState<DashboardAccountAmounts>(EMPTY_DASHBOARD_DATA);
   const [amountDraft, setAmountDraft] = useState<Record<AccountAmountKey, string>>({
-    bank: String(BANK_MONEY),
-    cash: String(CASH_MONEY),
-    fixedDeposit: '25000',
-    flexibleSavings: '8200',
+    bank: '0',
+    cash: '0',
+    fixedDeposit: '0',
+    flexibleSavings: '0',
   });
   const [isAmountModalVisible, setIsAmountModalVisible] = useState(false);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingAmounts, setIsSavingAmounts] = useState(false);
+
+  const loadDashboard = useCallback(async (showLoading = true): Promise<void> => {
+    if (showLoading) {
+      setIsDashboardLoading(true);
+    }
+
+    try {
+      const data = await getDashboard();
+      setDashboard(data);
+    } catch (error) {
+      showErrorToast(
+        getApiErrorMessage(error, 'Unable to load dashboard data. Please try again.'),
+      );
+    } finally {
+      if (showLoading) {
+        setIsDashboardLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const refreshDashboard = async (): Promise<void> => {
+    setIsRefreshing(true);
+    try {
+      await loadDashboard(false);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const currentSavingsItems = savingsItems.map((item) => ({
     ...item,
     amount:
       item.id === 'fixed-deposit'
-        ? accountAmounts.fixedDeposit
-        : accountAmounts.flexibleSavings,
+        ? dashboard.fixedDeposit
+        : dashboard.flexibleSavings,
   }));
-  const currentMoneySources = moneySources.map((item) => ({
-    ...item,
-    amount:
-      item.id === 'bank'
-        ? accountAmounts.bank
-        : item.id === 'cash'
-          ? accountAmounts.cash
-          : item.amount,
+  const currentMoneySources: MoneySource[] = [
+    { id: 'bank', label: 'BANK', amount: dashboard.bank, icon: 'business-outline' },
+    { id: 'cash', label: 'CASH', amount: dashboard.cash, icon: 'cash-outline' },
+    { id: 'loans', label: 'LOANS', amount: dashboard.loanTotal, icon: 'swap-horizontal-outline' },
+    { id: 'income', label: 'INCOME', amount: dashboard.incomeTotal, icon: 'trending-up-outline' },
+  ];
+  const breakdownItems: BreakdownItem[] = dashboard.months.map((month) => ({
+    id: month.month,
+    month: month.month,
+    amount: month.toSpend,
   }));
+  const statItems: StatItem[] = [
+    {
+      id: 'income',
+      label: 'INCOME',
+      caption: 'This month',
+      amount: dashboard.incomeTotal,
+      icon: 'arrow-down',
+      iconColor: Colors.brand.deepPlum,
+    },
+    {
+      id: 'loans',
+      label: 'LOANS',
+      caption: 'This month',
+      amount: dashboard.loanTotal,
+      icon: 'arrow-up',
+      iconColor: Colors.status.error,
+    },
+  ];
 
   const openAmountModal = (): void => {
+    const currentAmounts: DashboardAccountAmounts = {
+      bank: dashboard.bank,
+      cash: dashboard.cash,
+      fixedDeposit: dashboard.fixedDeposit,
+      flexibleSavings: dashboard.flexibleSavings,
+    };
+    setAmountsAtModalOpen(currentAmounts);
     setAmountDraft({
-      bank: String(accountAmounts.bank),
-      cash: String(accountAmounts.cash),
-      fixedDeposit: String(accountAmounts.fixedDeposit),
-      flexibleSavings: String(accountAmounts.flexibleSavings),
+      bank: String(currentAmounts.bank),
+      cash: String(currentAmounts.cash),
+      fixedDeposit: String(currentAmounts.fixedDeposit),
+      flexibleSavings: String(currentAmounts.flexibleSavings),
     });
     setIsAmountModalVisible(true);
   };
@@ -187,7 +215,7 @@ export default function DashboardScreen(): React.JSX.Element {
     }));
   };
 
-  const saveAccountAmounts = (): void => {
+  const saveAccountAmounts = async (): Promise<void> => {
     const hasInvalidAmount = ACCOUNT_AMOUNT_FIELDS.some(
       ({ key }) =>
         amountDraft[key].length === 0 ||
@@ -199,13 +227,49 @@ export default function DashboardScreen(): React.JSX.Element {
       return;
     }
 
-    setAccountAmounts({
+    const updatedAmounts: DashboardAccountAmounts = {
       bank: Number(amountDraft.bank),
       cash: Number(amountDraft.cash),
       fixedDeposit: Number(amountDraft.fixedDeposit),
       flexibleSavings: Number(amountDraft.flexibleSavings),
-    });
-    setIsAmountModalVisible(false);
+    };
+    const changedAmounts = ACCOUNT_AMOUNT_FIELDS.reduce<Partial<DashboardAccountAmounts>>(
+      (changed, { key }) => {
+        if (updatedAmounts[key] !== amountsAtModalOpen[key]) {
+          changed[key] = updatedAmounts[key];
+        }
+        return changed;
+      },
+      {},
+    );
+
+    if (Object.keys(changedAmounts).length === 0) {
+      setIsAmountModalVisible(false);
+      return;
+    }
+
+    setIsSavingAmounts(true);
+    try {
+      await updateDashboardAmounts(changedAmounts);
+      setDashboard((current) => {
+        const nextAmounts = { ...current, ...changedAmounts };
+        return {
+          ...nextAmounts,
+          totalAvailable:
+            changedAmounts.bank !== undefined || changedAmounts.cash !== undefined
+              ? nextAmounts.bank + nextAmounts.cash
+              : current.totalAvailable,
+        };
+      });
+      setIsAmountModalVisible(false);
+      showSuccessToast('Dashboard amounts updated.');
+    } catch (error) {
+      showErrorToast(
+        getApiErrorMessage(error, 'Unable to save dashboard amounts. Please try again.'),
+      );
+    } finally {
+      setIsSavingAmounts(false);
+    }
   };
 
   const toggleMonth = (monthId: string): void => {
@@ -265,6 +329,15 @@ export default function DashboardScreen(): React.JSX.Element {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshDashboard}
+            tintColor="#804E89"
+            colors={['#804E89']}
+            progressBackgroundColor="#FFFFFF"
+          />
+        }
       >
         {/* Overview + Savings (single card) */}
         <View style={styles.heroCard}>
@@ -277,10 +350,12 @@ export default function DashboardScreen(): React.JSX.Element {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Edit account and savings amounts"
+                disabled={isDashboardLoading || isSavingAmounts}
                 onPress={openAmountModal}
                 style={({ pressed }) => [
                   styles.heroIconChip,
                   pressed && styles.cardPressed,
+                  (isDashboardLoading || isSavingAmounts) && styles.disabled,
                 ]}
               >
                 <Ionicons
@@ -293,42 +368,62 @@ export default function DashboardScreen(): React.JSX.Element {
               </Pressable>
             </View>
 
-            <Text style={styles.heroLabel}>TOTAL AVAILABLE</Text>
-            <Text style={styles.heroAmount}>
-              {formatCurrency(accountAmounts.bank + accountAmounts.cash, 2)}
-            </Text>
+            {isDashboardLoading ? (
+              <Skeleton width={ms(132)} height={ms(12)} />
+            ) : (
+              <Text style={styles.heroLabel}>TOTAL AVAILABLE</Text>
+            )}
+            {isDashboardLoading ? (
+              <Skeleton width={ms(190)} height={ms(38)} style={styles.heroAmountSkeleton} />
+            ) : (
+              <Text style={styles.heroAmount}>
+                {formatCurrency(dashboard.totalAvailable)}
+              </Text>
+            )}
 
             <View style={styles.heroTotals}>
               <View style={styles.heroTotalColumn}>
-                <View style={styles.heroTotalLabelRow}>
-                  <Ionicons
-                    name="business-outline"
-                    size={ms(13)}
-                    color={Colors.neutral[30]}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no"
-                  />
-                  <Text style={styles.heroTotalLabel}>BANK</Text>
-                </View>
-                <Text style={styles.heroTotalAmount}>
-                  {formatCurrency(accountAmounts.bank)}
-                </Text>
+                {isDashboardLoading ? (
+                  <Skeleton width={ms(64)} height={ms(12)} />
+                ) : (
+                  <View style={styles.heroTotalLabelRow}>
+                    <Ionicons
+                      name="business-outline"
+                      size={ms(13)}
+                      color={Colors.neutral[30]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
+                    <Text style={styles.heroTotalLabel}>BANK</Text>
+                  </View>
+                )}
+                {isDashboardLoading ? (
+                  <Skeleton width={ms(76)} height={ms(18)} style={styles.valueSkeleton} />
+                ) : (
+                  <Text style={styles.heroTotalAmount}>{formatCurrency(dashboard.bank)}</Text>
+                )}
               </View>
               <View style={styles.heroTotalDivider} />
               <View style={styles.heroTotalColumn}>
-                <View style={styles.heroTotalLabelRow}>
-                  <Ionicons
-                    name="cash-outline"
-                    size={ms(13)}
-                    color={Colors.neutral[30]}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no"
-                  />
-                  <Text style={styles.heroTotalLabel}>CASH</Text>
-                </View>
-                <Text style={styles.heroTotalAmount}>
-                  {formatCurrency(accountAmounts.cash)}
-                </Text>
+                {isDashboardLoading ? (
+                  <Skeleton width={ms(64)} height={ms(12)} />
+                ) : (
+                  <View style={styles.heroTotalLabelRow}>
+                    <Ionicons
+                      name="cash-outline"
+                      size={ms(13)}
+                      color={Colors.neutral[30]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
+                    <Text style={styles.heroTotalLabel}>CASH</Text>
+                  </View>
+                )}
+                {isDashboardLoading ? (
+                  <Skeleton width={ms(76)} height={ms(18)} style={styles.valueSkeleton} />
+                ) : (
+                  <Text style={styles.heroTotalAmount}>{formatCurrency(dashboard.cash)}</Text>
+                )}
               </View>
             </View>
 
@@ -336,47 +431,83 @@ export default function DashboardScreen(): React.JSX.Element {
             <View style={styles.savingsSection}>
               <View style={styles.savingsHeader}>
                 <View style={styles.savingsHeaderText}>
-                  <Text style={styles.savingsTitle}>Savings</Text>
-                  <Text style={styles.savingsTotal}>{formatCurrency(totalSavings)}</Text>
+                  {isDashboardLoading ? (
+                    <Skeleton width={ms(132)} height={ms(12)} />
+                  ) : (
+                    <Text style={styles.savingsTitle}>Savings</Text>
+                  )}
+                  {isDashboardLoading ? (
+                    <Skeleton
+                      width={ms(190)}
+                      height={ms(38)}
+                      style={styles.heroAmountSkeleton}
+                    />
+                  ) : (
+                    <Text style={styles.savingsTotal}>{formatCurrency(totalSavings)}</Text>
+                  )}
                 </View>
-                <View style={styles.heroIconChip}>
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={ms(18)}
-                    color={Colors.neutral[10]}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no"
+                {isDashboardLoading ? (
+                  <Skeleton
+                    width={ms(60)}
+                    height={ms(60)}
+                    style={styles.roundSkeleton}
                   />
-                </View>
+                ) : (
+                  <View style={styles.heroIconChip}>
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={ms(18)}
+                      color={Colors.neutral[10]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
+                  </View>
+                )}
               </View>
 
-              <View style={styles.savingsRow}>
-                {currentSavingsItems.map((item, index) => (
-                  <React.Fragment key={item.id}>
-                    {index > 0 && <View style={styles.savingsDivider} />}
-                    <View
-                      style={styles.savingsItem}
-                      accessible
-                      accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
-                    >
-                      <View style={styles.savingsItemIcon}>
-                        <Ionicons
-                          name={item.icon}
-                          size={ms(16)}
-                          color={Colors.neutral[10]}
-                          accessibilityElementsHidden
-                          importantForAccessibility="no"
-                        />
+              {isDashboardLoading ? (
+                <View style={styles.savingsRow}>
+                  {[0, 1, 2].map((item, index) => (
+                    <React.Fragment key={`savings-skeleton-${item}`}>
+                      {index > 0 && <View style={styles.savingsDivider} />}
+                      <View style={styles.savingsItem}>
+                        <Skeleton width={ms(30)} height={ms(30)} style={styles.roundSkeleton} />
+                        <Skeleton width="82%" height={ms(12)} style={styles.savingsSkeletonLabel} />
+                        <Skeleton width={ms(80)} height={ms(18)} style={styles.valueSkeleton} />
+                        <Skeleton width="64%" height={ms(12)} style={styles.captionSkeleton} />
                       </View>
-                      <Text style={styles.savingsItemLabel}>{item.label}</Text>
-                      <Text style={styles.savingsItemAmount}>
-                        {formatCurrency(item.amount)}
-                      </Text>
-                      <Text style={styles.savingsItemCaption}>{item.caption}</Text>
-                    </View>
-                  </React.Fragment>
-                ))}
-              </View>
+                    </React.Fragment>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.savingsRow}>
+                  {currentSavingsItems.map((item, index) => (
+                    <React.Fragment key={item.id}>
+                      {index > 0 && <View style={styles.savingsDivider} />}
+                      <View
+                        style={styles.savingsItem}
+                        accessible
+                        accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
+                      >
+                        <View style={styles.savingsItemIcon}>
+                          <Ionicons
+                            name={item.icon}
+                            size={ms(16)}
+                            color={Colors.neutral[10]}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                          />
+                        </View>
+                        <Text style={styles.savingsItemLabel}>{item.label}</Text>
+                        <Text style={styles.savingsItemAmount}>
+                          {formatCurrency(item.amount)}
+                        </Text>
+                        <Text style={styles.savingsItemCaption}>{item.caption}</Text>
+                      </View>
+                    </React.Fragment>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -395,26 +526,54 @@ export default function DashboardScreen(): React.JSX.Element {
               ]}
             >
               <View style={styles.statTop}>
-                <View style={styles.statBadge}>
+                {isDashboardLoading ? (
+                  <Skeleton
+                    width={ms(34)}
+                    height={ms(34)}
+                    style={styles.roundSkeleton}
+                  />
+                ) : (
+                  <View style={styles.statBadge}>
+                    <Ionicons
+                      name={item.icon}
+                      size={ms(16)}
+                      color={item.iconColor}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
+                  </View>
+                )}
+                {isDashboardLoading ? (
+                  <Skeleton width={ms(18)} height={ms(18)} style={styles.roundSkeleton} />
+                ) : (
                   <Ionicons
-                    name={item.icon}
-                    size={ms(16)}
-                    color={item.iconColor}
+                    name="chevron-forward"
+                    size={ms(18)}
+                    color={Colors.neutral[50]}
                     accessibilityElementsHidden
                     importantForAccessibility="no"
                   />
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={ms(18)}
-                  color={Colors.neutral[50]}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                />
+                )}
               </View>
-              <Text style={styles.statLabel}>{item.label}</Text>
-              <Text style={styles.statAmount}>{formatCurrency(item.amount)}</Text>
-              <Text style={styles.statCaption}>{item.caption}</Text>
+              {isDashboardLoading ? (
+                <Skeleton width={ms(68)} height={ms(12)} />
+              ) : (
+                <Text style={styles.statLabel}>{item.label}</Text>
+              )}
+              {isDashboardLoading ? (
+                <Skeleton width={ms(100)} height={ms(23)} style={styles.valueSkeleton} />
+              ) : (
+                <Text style={styles.statAmount}>{formatCurrency(item.amount)}</Text>
+              )}
+              {isDashboardLoading ? (
+                <Skeleton
+                  width={ms(76)}
+                  height={ms(12)}
+                  style={styles.captionSkeleton}
+                />
+              ) : (
+                <Text style={styles.statCaption}>{item.caption}</Text>
+              )}
             </Pressable>
           ))}
         </View>
@@ -422,64 +581,95 @@ export default function DashboardScreen(): React.JSX.Element {
         {/* Financial Breakdown */}
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionTitle}>Months</Text>
-            <View style={styles.sectionPill}>
-              <Text style={styles.sectionPillText}>
-                {selectedMonths.length} SELECTED
-              </Text>
-            </View>
+            {isDashboardLoading ? (
+              <>
+                <Skeleton width={ms(76)} height={ms(22)} />
+                <Skeleton
+                  width={ms(110)}
+                  height={ms(28)}
+                  style={styles.pillSkeleton}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.sectionTitle}>Months</Text>
+                <View style={styles.sectionPill}>
+                  <Text style={styles.sectionPillText}>
+                    {selectedMonths.length} SELECTED
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           <View style={styles.breakdownList}>
-            {breakdownItems.map((item, index) => {
-              const isChecked = selectedMonths.includes(item.id);
-
-              return (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="checkbox"
-                  accessibilityLabel={`${item.month}, ${formatCurrency(item.amount)}`}
-                  accessibilityState={{ checked: isChecked }}
-                  onPress={() => toggleMonth(item.id)}
-                  style={({ pressed }) => [
+            {isDashboardLoading
+              ? [0, 1, 2].map((index) => (
+                <View
+                  key={`month-skeleton-${index}`}
+                  style={[
                     styles.breakdownRow,
-                    index < breakdownItems.length - 1 && styles.breakdownRowDivider,
-                    pressed && styles.cardPressed,
+                    index < 2 && styles.breakdownRowDivider,
                   ]}
                 >
-                  <View
-                    style={[styles.checkbox, isChecked && styles.checkboxChecked]}
-                  >
-                    {isChecked && (
-                      <Ionicons
-                        name="checkmark"
-                        size={ms(15)}
-                        color={Colors.neutral[10]}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no"
-                      />
-                    )}
-                  </View>
-                  <Text style={styles.breakdownMonth}>{item.month}</Text>
-                  <Text
-                    style={[
-                      styles.breakdownAmount,
-                      isChecked && styles.breakdownAmountChecked,
+                  <Skeleton width={ms(22)} height={ms(22)} />
+                  <Skeleton width="42%" height={ms(18)} />
+                  <Skeleton width={ms(84)} height={ms(18)} />
+                </View>
+              ))
+              : breakdownItems.map((item, index) => {
+                const isChecked = selectedMonths.includes(item.id);
+
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`${item.month}, ${formatCurrency(item.amount)}`}
+                    accessibilityState={{ checked: isChecked }}
+                    onPress={() => toggleMonth(item.id)}
+                    style={({ pressed }) => [
+                      styles.breakdownRow,
+                      index < breakdownItems.length - 1 && styles.breakdownRowDivider,
+                      pressed && styles.cardPressed,
                     ]}
                   >
-                    {isChecked ? '-' : ''}
-                    {formatCurrency(item.amount)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <View
+                      style={[styles.checkbox, isChecked && styles.checkboxChecked]}
+                    >
+                      {isChecked && (
+                        <Ionicons
+                          name="checkmark"
+                          size={ms(15)}
+                          color={Colors.neutral[10]}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                        />
+                      )}
+                    </View>
+                    <Text style={styles.breakdownMonth}>{item.month}</Text>
+                    <Text
+                      style={[
+                        styles.breakdownAmount,
+                        isChecked && styles.breakdownAmountChecked,
+                      ]}
+                    >
+                      {isChecked ? '-' : ''}
+                      {formatCurrency(item.amount)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
           </View>
         </View>
 
         {/* Money Sources */}
         <View style={styles.section}>
           <View style={styles.moneySourcesHeading}>
-            <Text style={styles.sectionTitle}>Money Source</Text>
+            {isDashboardLoading ? (
+              <Skeleton width={ms(142)} height={ms(22)} />
+            ) : (
+              <Text style={styles.sectionTitle}>Money Source</Text>
+            )}
           </View>
           <View style={styles.moneySourceGrid}>
             {currentMoneySources.map((source) => {
@@ -494,26 +684,41 @@ export default function DashboardScreen(): React.JSX.Element {
                   onPress={() => toggleSource(source.id)}
                   style={({ pressed }) => [
                     styles.moneySourceCard,
-                    isSelected && styles.moneySourceCardSelected,
+                    isSelected && !isDashboardLoading && styles.moneySourceCardSelected,
                     pressed && styles.cardPressed,
                   ]}
                 >
                   <View style={styles.moneySourceTop}>
-                    <View
-                      style={[
-                        styles.moneySourceIcon,
-                        isSelected && styles.moneySourceIconSelected,
-                      ]}
-                    >
-                      <Ionicons
-                        name={source.icon}
-                        size={ms(18)}
-                        color={isSelected ? Colors.neutral[10] : Colors.brand.deepPlum}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no"
+                    {isDashboardLoading ? (
+                      <Skeleton
+                        width={ms(34)}
+                        height={ms(34)}
+                        style={styles.roundSkeleton}
                       />
-                    </View>
-                    {isSelected && (
+                    ) : (
+                      <View
+                        style={[
+                          styles.moneySourceIcon,
+                          isSelected && styles.moneySourceIconSelected,
+                        ]}
+                      >
+                        <Ionicons
+                          name={source.icon}
+                          size={ms(18)}
+                          color={isSelected ? Colors.neutral[10] : Colors.brand.deepPlum}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                        />
+                      </View>
+                    )}
+                    {isDashboardLoading && isSelected && (
+                      <Skeleton
+                        width={ms(20)}
+                        height={ms(20)}
+                        style={styles.roundSkeleton}
+                      />
+                    )}
+                    {!isDashboardLoading && isSelected && (
                       <Ionicons
                         name="checkmark-circle"
                         size={ms(20)}
@@ -523,22 +728,34 @@ export default function DashboardScreen(): React.JSX.Element {
                       />
                     )}
                   </View>
-                  <Text
-                    style={[
-                      styles.moneySourceLabel,
-                      isSelected && styles.moneySourceLabelSelected,
-                    ]}
-                  >
-                    {source.label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.moneySourceAmount,
-                      isSelected && styles.moneySourceAmountSelected,
-                    ]}
-                  >
-                    {formatCurrency(source.amount)}
-                  </Text>
+                  {isDashboardLoading ? (
+                    <Skeleton width={ms(76)} height={ms(12)} />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.moneySourceLabel,
+                        isSelected && styles.moneySourceLabelSelected,
+                      ]}
+                    >
+                      {source.label}
+                    </Text>
+                  )}
+                  {isDashboardLoading ? (
+                    <Skeleton
+                      width={ms(100)}
+                      height={ms(24)}
+                      style={styles.valueSkeleton}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.moneySourceAmount,
+                        isSelected && styles.moneySourceAmountSelected,
+                      ]}
+                    >
+                      {formatCurrency(source.amount)}
+                    </Text>
+                  )}
                 </Pressable>
               );
             })}
@@ -550,8 +767,8 @@ export default function DashboardScreen(): React.JSX.Element {
           <View style={[styles.heroCircleLarge, { width: ms(180), height: ms(180), borderRadius: ms(90) }]} />
 
           <View style={styles.heroHeader}>
-            <Text style={[styles.heroLabel, {...TextStyles.SemiBold14}]}>CALCULATED BALANCE</Text>
-            <View style={[styles.heroIconChip, {backgroundColor: "trasnparent"}]}>
+            <Text style={[styles.heroLabel, { ...TextStyles.SemiBold14 }]}>CALCULATED BALANCE</Text>
+            <View style={[styles.heroIconChip, { backgroundColor: "trasnparent" }]}>
               <MaterialDesignIcons
                 name="calculator-variant-outline"
                 size={ms(40)}
@@ -562,28 +779,72 @@ export default function DashboardScreen(): React.JSX.Element {
             </View>
           </View>
 
-          <Text
-            style={[styles.balanceAmount, isNegative && styles.balanceAmountNegative]}
-            accessibilityLiveRegion="polite"
-          >
-            {formatCurrency(calculatedBalance, 2)}
-          </Text>
+          {isDashboardLoading ? (
+            <Skeleton
+              width={ms(220)}
+              height={ms(38)}
+              style={styles.balanceAmountSkeleton}
+            />
+          ) : (
+            <Text
+              style={[styles.balanceAmount, isNegative && styles.balanceAmountNegative]}
+              accessibilityLiveRegion="polite"
+            >
+              {formatCurrency(calculatedBalance)}
+            </Text>
+          )}
 
           <View style={styles.balanceSummary}>
-            {hasSelection ? (
+            {isDashboardLoading ? (
+              <View style={styles.balanceSummaryLoading}>
+                <View style={styles.balanceSummaryColumn}>
+                  <Skeleton width={ms(64)} height={ms(12)} />
+                  <Skeleton
+                    width={ms(84)}
+                    height={ms(18)}
+                    style={styles.balanceSummarySkeleton}
+                  />
+                </View>
+                <View style={styles.heroTotalDivider} />
+                <View style={styles.balanceSummaryColumn}>
+                  <Skeleton width={ms(58)} height={ms(12)} />
+                  <Skeleton
+                    width={ms(84)}
+                    height={ms(18)}
+                    style={styles.balanceSummarySkeleton}
+                  />
+                </View>
+              </View>
+            ) : hasSelection ? (
               <>
                 <View style={styles.balanceSummaryColumn}>
                   <Text style={styles.heroTotalLabel}>SOURCES</Text>
-                  <Text style={styles.balanceSummaryValue}>
-                    {formatCurrency(sourcesTotal)}
-                  </Text>
+                  {isDashboardLoading ? (
+                    <Skeleton
+                      width={ms(84)}
+                      height={ms(18)}
+                      style={styles.balanceSummarySkeleton}
+                    />
+                  ) : (
+                    <Text style={styles.balanceSummaryValue}>
+                      {formatCurrency(sourcesTotal)}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.heroTotalDivider} />
                 <View style={styles.balanceSummaryColumn}>
                   <Text style={styles.heroTotalLabel}>MONTHS</Text>
-                  <Text style={styles.balanceSummaryValue}>
-                    -{formatCurrency(monthsTotal)}
-                  </Text>
+                  {isDashboardLoading ? (
+                    <Skeleton
+                      width={ms(84)}
+                      height={ms(18)}
+                      style={styles.balanceSummarySkeleton}
+                    />
+                  ) : (
+                    <Text style={styles.balanceSummaryValue}>
+                      -{formatCurrency(monthsTotal)}
+                    </Text>
+                  )}
                 </View>
               </>
             ) : (
@@ -661,16 +922,13 @@ export default function DashboardScreen(): React.JSX.Element {
                 </View>
               ))}
 
-              <Pressable
-                accessibilityRole="button"
+              <LoadingButton
+                isLoading={isSavingAmounts}
                 onPress={saveAccountAmounts}
-                style={({ pressed }) => [
-                  styles.amountSaveButton,
-                  pressed && styles.cardPressed,
-                ]}
+                style={styles.amountSaveButton}
               >
                 <Text style={styles.amountSaveButtonText}>Save amounts</Text>
-              </Pressable>
+              </LoadingButton>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -856,6 +1114,10 @@ const styles = StyleSheet.create({
     color: Colors.neutral[30],
     letterSpacing: 0.8,
   },
+  savingsSkeletonLabel: {
+    marginTop: vs(8),
+    marginBottom: vs(4),
+  },
   savingsItemAmount: {
     ...TextStyles.Bold16,
     color: Colors.neutral[10],
@@ -886,6 +1148,9 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
+  disabled: {
+    opacity: 0.6,
+  },
   statTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -909,6 +1174,22 @@ const styles = StyleSheet.create({
     ...TextStyles.Bold20,
     color: Colors.neutral[100],
     marginTop: vs(4),
+  },
+  valueSkeleton: {
+    marginTop: vs(4),
+  },
+  roundSkeleton: {
+    borderRadius: ms(100),
+  },
+  captionSkeleton: {
+    marginTop: vs(2),
+  },
+  pillSkeleton: {
+    borderRadius: ms(20),
+  },
+  heroAmountSkeleton: {
+    marginTop: vs(6),
+    marginBottom: vs(18),
   },
   statCaption: {
     ...TextStyles.SemiBold12,
@@ -1070,6 +1351,10 @@ const styles = StyleSheet.create({
   balanceAmountNegative: {
     color: Colors.status.error,
   },
+  balanceAmountSkeleton: {
+    marginTop: vs(10),
+    marginBottom: vs(18),
+  },
   balanceSummary: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1078,12 +1363,20 @@ const styles = StyleSheet.create({
     borderRadius: ms(18),
     backgroundColor: OVERLAY_LIGHT,
   },
+  balanceSummaryLoading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   balanceSummaryColumn: {
     flex: 1,
   },
   balanceSummaryValue: {
     ...TextStyles.Bold16,
     color: Colors.neutral[10],
+    marginTop: vs(4),
+  },
+  balanceSummarySkeleton: {
     marginTop: vs(4),
   },
   balanceHint: {

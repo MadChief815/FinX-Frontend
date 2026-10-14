@@ -23,8 +23,10 @@ import { TextStyles } from '../../utils/TextStyles';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import type { AuthStackParamList } from '../../navigation/types';
-import { login as loginUser } from '../../api/adapters/auth.adapter';
 import { useAuthStore } from '../../store/authStore';
+
+// API
+import { login as loginUser } from '../../api/adapters/auth.adapter';
 
 // Icons
 import { Ionicons } from '@expo/vector-icons';
