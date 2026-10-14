@@ -1,24 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Components
-import Header from '../../components/Header';
 import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
 import { showErrorToast } from '../../utils/toast';
 
-
 // Icons
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -56,10 +59,6 @@ const OVERLAY_LIGHT = 'rgba(255, 255, 255, 0.10)';
 const SCREEN_BG = '#F7F4FC';
 const PLUM_TINT = 'rgba(109, 40, 217, 0.08)';
 const CARD_BORDER = 'rgba(109, 40, 217, 0.10)';
-const SAVINGS_BG = '#37018f34';
-const SAVINGS_BORDER = 'rgba(109, 40, 217, 0.18)';
-const SAVINGS_INNER = '#efe4ffa4';
-const SAVINGS_ICON_BG = '#f6f1fd';
 
 const BANK_MONEY = 12450;
 const CASH_MONEY = 1750;
@@ -114,6 +113,22 @@ const moneySources: MoneySource[] = [
   { id: 'income', label: 'INCOME', amount: 5400, icon: 'trending-up-outline' },
 ];
 
+interface AccountAmounts {
+  bank: number;
+  cash: number;
+  fixedDeposit: number;
+  flexibleSavings: number;
+}
+
+type AccountAmountKey = keyof AccountAmounts;
+
+const ACCOUNT_AMOUNT_FIELDS: { key: AccountAmountKey; label: string }[] = [
+  { key: 'bank', label: 'Bank' },
+  { key: 'cash', label: 'Cash' },
+  { key: 'fixedDeposit', label: 'Fixed deposit' },
+  { key: 'flexibleSavings', label: 'Flexible savings' },
+];
+
 const formatCurrency = (value: number, decimals = 0): string => {
   const sign = value < 0 ? '-' : '';
   const [whole, fraction] = Math.abs(value).toFixed(decimals).split('.');
@@ -124,6 +139,74 @@ const formatCurrency = (value: number, decimals = 0): string => {
 export default function DashboardScreen(): React.JSX.Element {
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [accountAmounts, setAccountAmounts] = useState<AccountAmounts>({
+    bank: BANK_MONEY,
+    cash: CASH_MONEY,
+    fixedDeposit: 25000,
+    flexibleSavings: 8200,
+  });
+  const [amountDraft, setAmountDraft] = useState<Record<AccountAmountKey, string>>({
+    bank: String(BANK_MONEY),
+    cash: String(CASH_MONEY),
+    fixedDeposit: '25000',
+    flexibleSavings: '8200',
+  });
+  const [isAmountModalVisible, setIsAmountModalVisible] = useState(false);
+
+  const currentSavingsItems = savingsItems.map((item) => ({
+    ...item,
+    amount:
+      item.id === 'fixed-deposit'
+        ? accountAmounts.fixedDeposit
+        : accountAmounts.flexibleSavings,
+  }));
+  const currentMoneySources = moneySources.map((item) => ({
+    ...item,
+    amount:
+      item.id === 'bank'
+        ? accountAmounts.bank
+        : item.id === 'cash'
+          ? accountAmounts.cash
+          : item.amount,
+  }));
+
+  const openAmountModal = (): void => {
+    setAmountDraft({
+      bank: String(accountAmounts.bank),
+      cash: String(accountAmounts.cash),
+      fixedDeposit: String(accountAmounts.fixedDeposit),
+      flexibleSavings: String(accountAmounts.flexibleSavings),
+    });
+    setIsAmountModalVisible(true);
+  };
+
+  const updateAmountDraft = (key: AccountAmountKey, value: string): void => {
+    setAmountDraft((current) => ({
+      ...current,
+      [key]: value.replace(/[^0-9]/g, ''),
+    }));
+  };
+
+  const saveAccountAmounts = (): void => {
+    const hasInvalidAmount = ACCOUNT_AMOUNT_FIELDS.some(
+      ({ key }) =>
+        amountDraft[key].length === 0 ||
+        !Number.isSafeInteger(Number(amountDraft[key])),
+    );
+
+    if (hasInvalidAmount) {
+      showErrorToast('Enter a valid whole-number amount in every field');
+      return;
+    }
+
+    setAccountAmounts({
+      bank: Number(amountDraft.bank),
+      cash: Number(amountDraft.cash),
+      fixedDeposit: Number(amountDraft.fixedDeposit),
+      flexibleSavings: Number(amountDraft.flexibleSavings),
+    });
+    setIsAmountModalVisible(false);
+  };
 
   const toggleMonth = (monthId: string): void => {
     setSelectedMonths((current) =>
@@ -150,7 +233,7 @@ export default function DashboardScreen(): React.JSX.Element {
   };
 
   const { sourcesTotal, monthsTotal, calculatedBalance } = useMemo(() => {
-    const sources = moneySources
+    const sources = currentMoneySources
       .filter((item) => selectedSources.includes(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
     const months = breakdownItems
@@ -162,11 +245,11 @@ export default function DashboardScreen(): React.JSX.Element {
       monthsTotal: months,
       calculatedBalance: sources - months,
     };
-  }, [selectedSources, selectedMonths]);
+  }, [currentMoneySources, selectedSources, selectedMonths]);
 
   const totalSavings = useMemo(
-    () => savingsItems.reduce((sum, item) => sum + item.amount, 0),
-    [],
+    () => currentSavingsItems.reduce((sum, item) => sum + item.amount, 0),
+    [currentSavingsItems],
   );
 
   const hasSelection = selectedSources.length > 0 || selectedMonths.length > 0;
@@ -178,110 +261,123 @@ export default function DashboardScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[screenStyles.container, styles.screen]}>
-      {/* Header */}
-      <Header title="Overview" back={false} />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
+        {/* Overview + Savings (single card) */}
         <View style={styles.heroCard}>
           <View style={styles.heroCircleLarge} />
           <View style={styles.heroCircleSmall} />
 
-          <View style={styles.heroHeader}>
+          <View style={styles.heroContent}>
+            <View style={styles.heroTitleRow}>
+              <Text style={styles.heroTitle}>Overview</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit account and savings amounts"
+                onPress={openAmountModal}
+                style={({ pressed }) => [
+                  styles.heroIconChip,
+                  pressed && styles.cardPressed,
+                ]}
+              >
+                <Ionicons
+                  name="wallet-outline"
+                  size={ms(24)}
+                  color={Colors.neutral[10]}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+              </Pressable>
+            </View>
+
             <Text style={styles.heroLabel}>TOTAL AVAILABLE</Text>
-            <View style={styles.heroIconChip}>
-              <Ionicons
-                name="wallet-outline"
-                size={ms(18)}
-                color={Colors.neutral[10]}
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              />
-            </View>
-          </View>
-          <Text style={styles.heroAmount}>
-            {formatCurrency(BANK_MONEY + CASH_MONEY, 2)}
-          </Text>
+            <Text style={styles.heroAmount}>
+              {formatCurrency(accountAmounts.bank + accountAmounts.cash, 2)}
+            </Text>
 
-          <View style={styles.heroTotals}>
-            <View style={styles.heroTotalColumn}>
-              <View style={styles.heroTotalLabelRow}>
-                <Ionicons
-                  name="business-outline"
-                  size={ms(13)}
-                  color={Colors.neutral[30]}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                />
-                <Text style={styles.heroTotalLabel}>BANK</Text>
-              </View>
-              <Text style={styles.heroTotalAmount}>{formatCurrency(BANK_MONEY)}</Text>
-            </View>
-            <View style={styles.heroTotalDivider} />
-            <View style={styles.heroTotalColumn}>
-              <View style={styles.heroTotalLabelRow}>
-                <Ionicons
-                  name="cash-outline"
-                  size={ms(13)}
-                  color={Colors.neutral[30]}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                />
-                <Text style={styles.heroTotalLabel}>CASH</Text>
-              </View>
-              <Text style={styles.heroTotalAmount}>{formatCurrency(CASH_MONEY)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Savings */}
-        <View style={styles.savingsCard}>
-          <View style={styles.savingsHeader}>
-            <View style={styles.savingsHeaderText}>
-              <Text style={styles.savingsTitle}>Savings</Text>
-              <Text style={styles.savingsTotal}>{formatCurrency(totalSavings)}</Text>
-            </View>
-            <View style={styles.savingsHeaderChip}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={ms(18)}
-                color={Colors.brand.deepPlum}
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              />
-            </View>
-          </View>
-
-          <View style={styles.savingsRow}>
-            {savingsItems.map((item, index) => (
-              <React.Fragment key={item.id}>
-                {index > 0 && <View style={styles.savingsDivider} />}
-                <View
-                  style={styles.savingsItem}
-                  accessible
-                  accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
-                >
-                  <View style={styles.savingsItemIcon}>
-                    <Ionicons
-                      name={item.icon}
-                      size={ms(16)}
-                      color={Colors.brand.deepPlum}
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                    />
-                  </View>
-                  <Text style={styles.savingsItemLabel}>{item.label}</Text>
-                  <Text style={styles.savingsItemAmount}>
-                    {formatCurrency(item.amount)}
-                  </Text>
-                  <Text style={styles.savingsItemCaption}>{item.caption}</Text>
+            <View style={styles.heroTotals}>
+              <View style={styles.heroTotalColumn}>
+                <View style={styles.heroTotalLabelRow}>
+                  <Ionicons
+                    name="business-outline"
+                    size={ms(13)}
+                    color={Colors.neutral[30]}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                  <Text style={styles.heroTotalLabel}>BANK</Text>
                 </View>
-              </React.Fragment>
-            ))}
+                <Text style={styles.heroTotalAmount}>
+                  {formatCurrency(accountAmounts.bank)}
+                </Text>
+              </View>
+              <View style={styles.heroTotalDivider} />
+              <View style={styles.heroTotalColumn}>
+                <View style={styles.heroTotalLabelRow}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={ms(13)}
+                    color={Colors.neutral[30]}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                  <Text style={styles.heroTotalLabel}>CASH</Text>
+                </View>
+                <Text style={styles.heroTotalAmount}>
+                  {formatCurrency(accountAmounts.cash)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Savings */}
+            <View style={styles.savingsSection}>
+              <View style={styles.savingsHeader}>
+                <View style={styles.savingsHeaderText}>
+                  <Text style={styles.savingsTitle}>Savings</Text>
+                  <Text style={styles.savingsTotal}>{formatCurrency(totalSavings)}</Text>
+                </View>
+                <View style={styles.heroIconChip}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={ms(18)}
+                    color={Colors.neutral[10]}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.savingsRow}>
+                {currentSavingsItems.map((item, index) => (
+                  <React.Fragment key={item.id}>
+                    {index > 0 && <View style={styles.savingsDivider} />}
+                    <View
+                      style={styles.savingsItem}
+                      accessible
+                      accessibilityLabel={`${item.label}, ${formatCurrency(item.amount)}`}
+                    >
+                      <View style={styles.savingsItemIcon}>
+                        <Ionicons
+                          name={item.icon}
+                          size={ms(16)}
+                          color={Colors.neutral[10]}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                        />
+                      </View>
+                      <Text style={styles.savingsItemLabel}>{item.label}</Text>
+                      <Text style={styles.savingsItemAmount}>
+                        {formatCurrency(item.amount)}
+                      </Text>
+                      <Text style={styles.savingsItemCaption}>{item.caption}</Text>
+                    </View>
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
           </View>
         </View>
 
@@ -386,7 +482,7 @@ export default function DashboardScreen(): React.JSX.Element {
             <Text style={styles.sectionTitle}>Money Source</Text>
           </View>
           <View style={styles.moneySourceGrid}>
-            {moneySources.map((source) => {
+            {currentMoneySources.map((source) => {
               const isSelected = selectedSources.includes(source.id);
 
               return (
@@ -451,16 +547,15 @@ export default function DashboardScreen(): React.JSX.Element {
 
         {/* Calculated Balance */}
         <View style={styles.balanceCard}>
-          <View style={styles.heroCircleLarge} />
-          <View style={styles.heroCircleSmall} />
+          <View style={[styles.heroCircleLarge, { width: ms(180), height: ms(180), borderRadius: ms(90) }]} />
 
           <View style={styles.heroHeader}>
-            <Text style={styles.heroLabel}>CALCULATED BALANCE</Text>
-            <View style={styles.heroIconChip}>
-              <Ionicons
-                name="calculator-outline"
-                size={ms(18)}
-                color={Colors.neutral[10]}
+            <Text style={[styles.heroLabel, {...TextStyles.SemiBold14}]}>CALCULATED BALANCE</Text>
+            <View style={[styles.heroIconChip, {backgroundColor: "trasnparent"}]}>
+              <MaterialDesignIcons
+                name="calculator-variant-outline"
+                size={ms(40)}
+                color={Colors.neutral[30]}
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               />
@@ -499,6 +594,87 @@ export default function DashboardScreen(): React.JSX.Element {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isAmountModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAmountModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.amountModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close amount editor"
+            onPress={() => setIsAmountModalVisible(false)}
+            style={styles.amountModalBackdrop}
+          />
+          <View style={styles.amountModalCard}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.amountModalContent}
+            >
+              <View style={styles.amountModalHeader}>
+                <View style={styles.amountModalHeading}>
+                  <Text style={styles.amountModalTitle}>Edit amounts</Text>
+                  <Text style={styles.amountModalSubtitle}>
+                    Enter whole amounts in rupees
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close amount editor"
+                  onPress={() => setIsAmountModalVisible(false)}
+                  style={({ pressed }) => [
+                    styles.amountModalClose,
+                    pressed && styles.cardPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="close"
+                    size={ms(22)}
+                    color={Colors.brand.deepPlum}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                  />
+                </Pressable>
+              </View>
+
+              {ACCOUNT_AMOUNT_FIELDS.map(({ key, label }) => (
+                <View key={key} style={styles.amountField}>
+                  <Text style={styles.amountFieldLabel}>{label}</Text>
+                  <View style={styles.amountInputContainer}>
+                    <Text style={styles.amountInputPrefix}>Rs.</Text>
+                    <TextInput
+                      accessibilityLabel={`${label} amount`}
+                      value={amountDraft[key]}
+                      onChangeText={(value) => updateAmountDraft(key, value)}
+                      keyboardType="number-pad"
+                      maxLength={16}
+                      selectTextOnFocus
+                      style={styles.amountInput}
+                    />
+                  </View>
+                </View>
+              ))}
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={saveAccountAmounts}
+                style={({ pressed }) => [
+                  styles.amountSaveButton,
+                  pressed && styles.cardPressed,
+                ]}
+              >
+                <Text style={styles.amountSaveButtonText}>Save amounts</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -521,14 +697,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: s(20),
-    paddingTop: vs(16),
-    paddingBottom: vs(24),
+    paddingTop: 0,
+    // paddingBottom: vs(24),
   },
 
   // Hero
   heroCard: {
-    padding: s(22),
-    borderRadius: ms(28),
+    marginHorizontal: -s(20),
+    padding: 0,
+    borderRadius: 0,
     backgroundColor: Colors.brand.deepPlum,
     overflow: 'hidden',
     shadowColor: Colors.brand.deepPlum,
@@ -537,22 +714,35 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  heroTitle: {
+    ...TextStyles.SemiBold24,
+    color: Colors.neutral[10],
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(16),
+  },
+  heroContent: {
+    padding: s(22),
+  },
   heroCircleLarge: {
     position: 'absolute',
     top: -ms(60),
     right: -ms(40),
-    width: ms(180),
-    height: ms(180),
-    borderRadius: ms(90),
+    width: ms(200),
+    height: ms(200),
+    borderRadius: ms(100),
     backgroundColor: OVERLAY_LIGHT,
   },
   heroCircleSmall: {
     position: 'absolute',
-    bottom: -ms(50),
-    left: -ms(30),
-    width: ms(120),
-    height: ms(120),
-    borderRadius: ms(60),
+    bottom: -ms(70),
+    left: -ms(50),
+    width: ms(200),
+    height: ms(200),
+    borderRadius: ms(100),
     backgroundColor: OVERLAY_LIGHT,
   },
   heroHeader: {
@@ -566,9 +756,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   heroIconChip: {
-    width: ms(36),
-    height: ms(36),
-    borderRadius: ms(18),
+    width: ms(60),
+    height: ms(60),
+    borderRadius: ms(30),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: OVERLAY_LIGHT,
@@ -576,7 +766,7 @@ const styles = StyleSheet.create({
   heroAmount: {
     ...TextStyles.Bold32,
     color: Colors.neutral[10],
-    marginTop: vs(10),
+    marginTop: vs(6),
     marginBottom: vs(18),
   },
   heroTotals: {
@@ -612,20 +802,12 @@ const styles = StyleSheet.create({
     marginTop: vs(4),
   },
 
-  // Savings
-  savingsCard: {
-    marginTop: vs(16),
-    padding: s(18),
-    borderRadius: ms(22),
-    borderWidth: 1,
-    borderColor: SAVINGS_BORDER,
-    backgroundColor: SAVINGS_BG,
-    overflow: 'hidden',
-    shadowColor: Colors.brand.deepPlum,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 0,
+  // Savings (inside hero card)
+  savingsSection: {
+    marginTop: vs(20),
+    paddingTop: vs(18),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.neutral[50],
   },
   savingsHeader: {
     flexDirection: 'row',
@@ -638,32 +820,18 @@ const styles = StyleSheet.create({
   },
   savingsTitle: {
     ...TextStyles.SemiBold12,
-    color: Colors.brand.deepPlum,
+    color: Colors.neutral[30],
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   savingsTotal: {
     ...TextStyles.Bold24,
-    color: Colors.neutral[100],
+    color: Colors.neutral[10],
     marginTop: vs(4),
-  },
-  savingsHeaderChip: {
-    width: ms(36),
-    height: ms(36),
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: "#f8f5fd",
   },
   savingsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingVertical: vs(12),
-    paddingHorizontal: s(14),
-    borderRadius: ms(22),
-    overflow: 'hidden',
-    backgroundColor: SAVINGS_INNER,
   },
   savingsItem: {
     flex: 1,
@@ -672,31 +840,30 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     marginHorizontal: s(14),
-    backgroundColor: SAVINGS_BORDER,
+    backgroundColor: Colors.neutral[50],
   },
   savingsItemIcon: {
     width: ms(30),
     height: ms(30),
-    borderRadius: 999,
+    borderRadius: ms(15),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: vs(8),
-    overflow: 'hidden',
-    backgroundColor: SAVINGS_ICON_BG,
+    backgroundColor: OVERLAY_LIGHT,
   },
   savingsItemLabel: {
     ...TextStyles.SemiBold12,
-    color: Colors.neutral[60],
+    color: Colors.neutral[30],
     letterSpacing: 0.8,
   },
   savingsItemAmount: {
     ...TextStyles.Bold16,
-    color: Colors.neutral[100],
+    color: Colors.neutral[10],
     marginTop: vs(4),
   },
   savingsItemCaption: {
     ...TextStyles.SemiBold12,
-    color: Colors.neutral[60],
+    color: Colors.neutral[30],
     marginTop: vs(2),
   },
 
@@ -748,6 +915,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[60],
     marginTop: vs(2),
   },
+
   // Sections
   section: {
     marginTop: vs(28),
@@ -881,9 +1049,10 @@ const styles = StyleSheet.create({
 
   // Calculated balance
   balanceCard: {
+    marginHorizontal: -(22),
     padding: s(22),
     marginTop: vs(28),
-    borderRadius: ms(28),
+    // borderRadius: ms(28),
     backgroundColor: Colors.brand.deepPlum,
     overflow: 'hidden',
     shadowColor: Colors.brand.deepPlum,
@@ -921,5 +1090,92 @@ const styles = StyleSheet.create({
     ...TextStyles.SemiBold12,
     color: Colors.neutral[30],
     flex: 1,
+  },
+  amountModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(42, 18, 68, 0.72)',
+  },
+  amountModalBackdrop: {
+    flex: 1,
+  },
+  amountModalCard: {
+    width: '100%',
+    maxHeight: '92%',
+    borderTopLeftRadius: ms(26),
+    borderTopRightRadius: ms(26),
+    backgroundColor: '#E8DDF3',
+    overflow: 'hidden',
+    paddingBottom: Platform.OS === 'ios' ? vs(12) : vs(8),
+  },
+  amountModalContent: {
+    padding: s(22),
+  },
+  amountModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(20),
+  },
+  amountModalHeading: {
+    flex: 1,
+  },
+  amountModalTitle: {
+    ...TextStyles.Bold20,
+    color: Colors.neutral[100],
+  },
+  amountModalSubtitle: {
+    ...TextStyles.SemiBold12,
+    color: Colors.neutral[60],
+    marginTop: vs(4),
+  },
+  amountModalClose: {
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PLUM_TINT,
+  },
+  amountField: {
+    marginBottom: vs(14),
+  },
+  amountFieldLabel: {
+    ...TextStyles.SemiBold12,
+    color: Colors.neutral[70],
+    marginBottom: vs(6),
+  },
+  amountInputContainer: {
+    height: vs(50),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(14),
+    borderRadius: ms(12),
+    borderWidth: 1,
+    borderColor: 'rgba(109, 40, 217, 0.22)',
+    backgroundColor: '#E2D5F0',
+  },
+  amountInputPrefix: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[60],
+    marginRight: s(8),
+  },
+  amountInput: {
+    ...TextStyles.SemiBold16,
+    flex: 1,
+    height: '100%',
+    paddingVertical: 0,
+    color: Colors.neutral[100],
+  },
+  amountSaveButton: {
+    minHeight: vs(50),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: vs(6),
+    borderRadius: ms(14),
+    backgroundColor: Colors.brand.deepPlum,
+  },
+  amountSaveButtonText: {
+    ...TextStyles.SemiBold16,
+    color: Colors.neutral[10],
   },
 });
