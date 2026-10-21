@@ -15,8 +15,8 @@ export default function RootNavigator(): React.JSX.Element {
 
     return (
         <NavigationContainer>
-            {isAuthenticated ? <AppTabs /> : <AuthStack />}
-            {/* {<AppTabs />} */}
+            {/* {isAuthenticated ? <AppTabs /> : <AuthStack />} */}
+            {<AppTabs />}
         </NavigationContainer>
     );
 }

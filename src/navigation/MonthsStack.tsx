@@ -24,6 +24,7 @@ export default function MonthsStack(): React.JSX.Element {
   return (
     <Stack.Navigator
       screenOptions={{ headerShown: false }}
+      initialRouteName='MonthList'
       screenListeners={{
         state: (e: { data: { state: NavigationState } }) => {
           const depth = e.data.state?.routes?.length ?? 1;
