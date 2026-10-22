@@ -7,17 +7,17 @@ export type MonthsStackParamList = {
   MonthList: undefined;
   MonthCreate: undefined;
   MonthDetail: {
-    monthId?: string;
+    monthId?: string | number;
   };
   SpendCreate: {
-    monthId?: string;
+    monthId?: string | number;
   };
   SubPage: {
-    monthId?: string;
+    monthId?: string | number;
     subId?: string;
   };
   SubSpendCreate: {
-    monthId?: string;
+    monthId?: string | number;
     subId?: string;
   };
 };

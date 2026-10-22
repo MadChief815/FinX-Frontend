@@ -10,12 +10,14 @@ import { Colors } from '../utils/Colors';
 
 interface HeaderProps {
   title: string;
+  titleColor?: string;
   onBackPress?: () => void;
   back: boolean;
 }
 
 export default function Header({
   title,
+  titleColor,
   onBackPress,
   back,
 }: HeaderProps) {
@@ -38,7 +40,12 @@ export default function Header({
       )}
 
       {/* Header Title */}
-      <Text style={TextPresets.heading}>
+      <Text
+        style={[
+          TextPresets.heading,
+          titleColor !== undefined && { color: titleColor },
+        ]}
+      >
         {title}
       </Text>
 

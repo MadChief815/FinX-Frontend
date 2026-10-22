@@ -1,0 +1,28 @@
+import api from '../../services/api';
+
+export interface MonthTotalsResponse {
+  total?: number;
+  spent?: number;
+  to_spend?: number;
+}
+
+export interface MonthResponse {
+  id: number;
+  title: string;
+  month: number;
+  year: number;
+  is_completed: boolean;
+  totals: MonthTotalsResponse;
+}
+
+export interface MonthsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: MonthResponse[];
+}
+
+export async function getMonths(): Promise<MonthsResponse> {
+  const response = await api.get<MonthsResponse>('finance/months/');
+  return response.data;
+}

@@ -17,15 +17,24 @@ const api = axios.create({
   timeout: 10000,
 });
 
-const authenticationEndpoints = [
-  '/api/v1/accounts/login',
-  '/api/v1/accounts/register',
-  '/api/v1/token/refresh',
+const authenticationEndpointSuffixes = [
+  '/login',
+  '/signin',
+  '/sign-in',
+  '/sign_in',
+  '/register',
+  '/signup',
+  '/token/refresh',
 ];
 
 function isAuthenticationRequest(url?: string): boolean {
-  const path = (url ?? '').split('?')[0].replace(/\/+$/, '');
-  return authenticationEndpoints.some((endpoint) => path.endsWith(endpoint));
+  const path = (url ?? '')
+    .split('?')[0]
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  return authenticationEndpointSuffixes.some(
+    (endpoint) => path === endpoint.slice(1) || path.endsWith(endpoint),
+  );
 }
 
 let refreshPromise: Promise<string> | null = null;
