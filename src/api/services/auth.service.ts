@@ -20,11 +20,11 @@ export interface AuthResponse {
 }
 
 export async function login(request: LoginRequest): Promise<AuthResponse> {
-  const response = await api.post<AuthResponse>('login/', request);
+  const response = await api.post<AuthResponse>('accounts/login/', request);
   return response.data;
 }
 
 export async function register(request: RegisterRequest): Promise<AuthResponse> {
-  const response = await api.post<AuthResponse>('register/', request);
+  const response = await api.post<AuthResponse>('accounts/register/', request);
   return response.data;
 }

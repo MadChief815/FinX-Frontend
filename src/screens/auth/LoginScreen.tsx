@@ -33,7 +33,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Facebook_Icon from '../../assets/AuthScreens/Facebook.svg';
 import Google_Icon from '../../assets/AuthScreens/Google.svg';
 
+// Debugging
+import api from '../../services/api';
+
 type LoginNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+
+// Debugging
+console.log("BASE_URL: ", api.defaults.baseURL)
 
 /* Static helpers (created once, not on every render) */
 

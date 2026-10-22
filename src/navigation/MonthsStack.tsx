@@ -32,13 +32,19 @@ export default function MonthsStack(): React.JSX.Element {
         },
       }}
     >
-      <Stack.Screen name="MonthList" component={MonthListScreen} />
+      <Stack.Screen
+        name="MonthList"
+        component={MonthListScreen}
+      />
       <Stack.Screen
         name="MonthCreate"
         component={MonthCreateScreen}
         options={{ presentation: 'modal' }}
       />
-      <Stack.Screen name="MonthDetail" component={MonthDetailScreen} />
+      <Stack.Screen
+        name="MonthDetail"
+        component={MonthDetailScreen}
+      />
       <Stack.Screen
         name="SpendCreate"
         component={SpendCreateScreen}

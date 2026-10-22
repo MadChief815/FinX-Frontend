@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MonthsStackParamList } from '../../navigation/types';
@@ -158,35 +159,44 @@ export default function MonthListScreen({
               ))}
             </View>
           </>
+        ) : loadError !== null && months.length === 0 ? (
+          <View style={styles.fullEmptyState}>
+            <LoadError
+              message={loadError}
+              isLoading={isRetrying}
+              onRetry={() => void retryMonths()}
+            />
+          </View>
+        ) : months.length === 0 ? (
+          <View style={styles.fullEmptyState}>
+            <CreateMonthAction
+              onPress={() => navigation.navigate('MonthCreate')}
+              emptyState
+            />
+          </View>
         ) : (
           <>
             {/* Active Months */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Active Months</Text>
-              {loadError !== null && months.length === 0 ? (
-                <LoadError
-                  message={loadError}
-                  isLoading={isRetrying}
-                  onRetry={() => void retryMonths()}
-                />
-              ) : activeMonths.length > 0 ? (
+              {activeMonths.length > 0 ? (
                 activeMonths.map((month) => renderMonth(month, false))
               ) : (
-                <Text style={styles.emptyMessage}>
-                  No active months yet.
-                </Text>
+                <EmptySection
+                  message="No active months available"
+                  actionLabel="Create a month"
+                  onAction={() => navigation.navigate('MonthCreate')}
+                />
               )}
             </View>
 
             {/* Completed Months */}
             <View style={styles.completedSection}>
               <Text style={styles.sectionTitle}>Completed Months</Text>
-              {loadError !== null && months.length === 0 ? null : completedMonths.length > 0 ? (
+              {completedMonths.length > 0 ? (
                 completedMonths.map((month) => renderMonth(month, true))
               ) : (
-                <Text style={styles.emptyMessage}>
-                  No completed months yet.
-                </Text>
+                <EmptySection message="No completed months" />
               )}
             </View>
             {loadError !== null && months.length > 0 && (
@@ -197,6 +207,12 @@ export default function MonthListScreen({
           </>
         )}
       </ScrollView>
+      {!isLoading && months.length > 0 && (
+        <CreateMonthAction
+          onPress={() => navigation.navigate('MonthCreate')}
+          floating
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -207,6 +223,94 @@ function MonthSkeleton(): React.JSX.Element {
       <Skeleton width="46%" height={ms(18)} />
       <Skeleton width={ms(92)} height={ms(18)} />
     </View>
+  );
+}
+
+function MonthIcon({
+  name,
+  size,
+  contained = false,
+}: {
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  size: number;
+  contained?: boolean;
+}): React.JSX.Element {
+  return (
+    <View style={styles.iconContainer}>
+      <View style={contained && styles.createMonthIcon}>
+        <Ionicons
+          name={name}
+          size={size}
+          color={contained ? Colors.neutral[10] : Colors.brand.orchid}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      </View>
+    </View>
+  );
+}
+
+function EmptySection({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}): React.JSX.Element {
+  return (
+    <View style={styles.emptySection}>
+      <MonthIcon
+        name="calendar-outline"
+        size={ms(30)}
+      />
+      <Text style={styles.emptyMessage}>{message}</Text>
+      {actionLabel !== undefined && onAction !== undefined && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onAction}
+          style={({ pressed }) => pressed && styles.actionPressed}
+        >
+          <Text style={styles.emptyAction}>{actionLabel}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function CreateMonthAction({
+  onPress,
+  emptyState = false,
+  floating = false,
+}: {
+  onPress: () => void;
+  emptyState?: boolean;
+  floating?: boolean;
+}): React.JSX.Element {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Create a month"
+      onPress={onPress}
+      style={({ pressed }) => [
+        emptyState
+          ? styles.createMonthEmptyState
+          : floating
+            ? styles.createMonthFab
+            : styles.createMonthButton,
+        pressed && styles.actionPressed,
+      ]}
+    >
+      <MonthIcon
+        name="add"
+        size={ms(emptyState ? 30 : 24)}
+        contained
+      />
+      {emptyState && (
+        <Text style={styles.emptyAction}>Create a month</Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -237,8 +341,68 @@ function LoadError({
 
 const styles = StyleSheet.create({
   scrollContent: {
+    flexGrow: 1,
     paddingTop: vs(24),
-    paddingBottom: vs(24),
+    paddingBottom: vs(96),
+  },
+  fullEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  createMonthButton: {
+    minWidth: s(44),
+    minHeight: vs(44),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createMonthFab: {
+    position: 'absolute',
+    right: s(20),
+    bottom: vs(20),
+    width: ms(56),
+    height: ms(56),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: ms(28),
+    backgroundColor: Colors.brand.orchid,
+    elevation: 5,
+    shadowColor: Colors.brand.deepPlum,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
+  },
+  createMonthEmptyState: {
+    alignItems: 'center',
+    gap: vs(12),
+    alignSelf: 'center',
+    padding: s(16),
+  },
+  createMonthIcon: {
+    width: ms(44),
+    height: ms(44),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: ms(22),
+    backgroundColor: Colors.brand.orchid,
+  },
+  iconContainer: {
+    width: ms(64),
+    height: ms(64),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: vs(8),
+    paddingVertical: vs(24),
+  },
+  emptyAction: {
+    ...TextStyles.SemiBold14,
+    color: Colors.brand.plum,
+  },
+  actionPressed: {
+    opacity: 0.72,
   },
   section: {
     gap: vs(12),
@@ -296,8 +460,8 @@ const styles = StyleSheet.create({
   },
   emptyMessage: {
     ...TextStyles.Regular14,
-    color: Colors.neutral[60],
-    paddingVertical: vs(8),
+    color: Colors.neutral[100],
+    textAlign: 'center',
   },
   errorMessage: {
     ...TextStyles.Regular14,
