@@ -13,8 +13,8 @@ interface TokenRefreshResponse {
 }
 
 const api = axios.create({
-  // baseURL: process.env.EXPO_PUBLIC_API_URL,
-  baseURL: process.env.EXPO_PUBLIC_EMULATOR_API_URL,
+  baseURL: process.env.EXPO_PUBLIC_API_URL,
+  // baseURL: process.env.EXPO_PUBLIC_EMULATOR_API_URL,
   timeout: 10000,
 });
 
@@ -46,8 +46,8 @@ api.interceptors.request.use((config) => {
     return config;
   }
 
-  const token = useAuthStore.getState().token;
-  if (!token) {
+  const { token, isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated || !token) {
     return Promise.reject(
       new Error('An access token is required for this request.')
     );
@@ -65,16 +65,30 @@ api.interceptors.response.use(
     }
 
     const originalRequest = error.config;
+    if (!originalRequest || isAuthenticationRequest(originalRequest.url)) {
+      return Promise.reject(error);
+    }
+
+    const authState = useAuthStore.getState();
+    const currentAuthorization = authState.token
+      ? `Bearer ${authState.token}`
+      : null;
     if (
-      !originalRequest ||
-      isAuthenticationRequest(originalRequest.url) ||
-      originalRequest._retry
+      authState.isAuthenticated &&
+      currentAuthorization &&
+      originalRequest.headers.get('Authorization') !== currentAuthorization
     ) {
+      originalRequest._retry = true;
+      originalRequest.headers.set('Authorization', currentAuthorization);
+      return api(originalRequest);
+    }
+
+    if (originalRequest._retry) {
+      await useAuthStore.getState().logout();
       return Promise.reject(error);
     }
 
     originalRequest._retry = true;
-
     const { refreshToken } = useAuthStore.getState();
     if (!refreshToken) {
       await useAuthStore.getState().logout();
@@ -87,19 +101,17 @@ api.interceptors.response.use(
           refresh: refreshToken,
         })
         .then(async ({ data }) => {
-          await useAuthStore
-            .getState()
-            .updateTokens(data.access, data.refresh ?? refreshToken);
+          if (typeof data.access !== 'string' || !data.access.trim()) {
+            throw new Error('Token refresh response did not include a valid access token.');
+          }
+          await useAuthStore.getState().updateTokens(
+            data.access,
+            data.refresh || refreshToken,
+          );
           return data.access;
         })
         .catch(async (refreshError: unknown) => {
-          if (
-            axios.isAxiosError(refreshError) &&
-            (refreshError.response?.status === 400 ||
-              refreshError.response?.status === 401)
-          ) {
-            await useAuthStore.getState().logout();
-          }
+          await useAuthStore.getState().logout();
           throw refreshError;
         })
         .finally(() => {
