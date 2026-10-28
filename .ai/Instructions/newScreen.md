@@ -32,6 +32,7 @@ Core (always):
 19. Use current React Native and TypeScript security/best-practice standards.
 20. Don't build or run anything in expo or project. Just only write codes.
 21. All buttons, ticks and request need to prevent multiple clicks. On buttons show loading spinner and hide the button text while loading and lower the button color opacity.
+22. Always use react-native-vector-icons for icons.
 
 Screen pattern:
 

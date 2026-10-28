@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +19,9 @@ import type { MonthListItem } from '../../api/adapters/months.adapter';
 // Components
 import Header from '../../components/Header';
 import { Skeleton } from '../../components/Skeleton';
+
+// Icons
+import Ionicons from 'react-native-vector-icons/Ionicons'
 
 // Utilities
 import { Colors } from '../../utils/Colors';

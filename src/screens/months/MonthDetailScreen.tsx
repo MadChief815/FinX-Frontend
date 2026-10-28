@@ -12,8 +12,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+
 import type { MonthsScreenProps } from '../../navigation/MonthsStack';
+
+// Icons
+import Ionicons from 'react-native-vector-icons/Ionicons'
+import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 
 // API
 import {
@@ -273,8 +277,17 @@ export default function MonthDetailScreen({
     }
   };
 
+  const openDeleteConfirmation = (confirmation: 'spend' | 'month'): void => {
+    setDeleteConfirmation(confirmation);
+    if (confirmation === 'spend') {
+      setIsEditModalVisible(false);
+    } else {
+      setIsMonthModalVisible(false);
+    }
+  };
+
   const confirmDeleteSpend = (): void => {
-    setDeleteConfirmation('spend');
+    openDeleteConfirmation('spend');
   };
 
   const cancelPendingSpendChange = (): void => {
@@ -403,7 +416,7 @@ export default function MonthDetailScreen({
   };
 
   const confirmDeleteMonth = (): void => {
-    setDeleteConfirmation('month');
+    openDeleteConfirmation('month');
   };
 
   const toggleCompleted = (spend: Spend): void => {
@@ -486,8 +499,7 @@ export default function MonthDetailScreen({
           onPress={openMonthEditor}
           style={({ pressed }) => [styles.headerEditButton, pressed && styles.pressed]}
         >
-          <Ionicons name="pencil" size={ms(20)} color={Colors.brand.plum} />
-          <View style={styles.pencilUnderline} />
+          <MaterialDesignIcons name="pencil" size={ms(20)} color={Colors.brand.plum} />
         </Pressable>
       </View>
 
@@ -507,12 +519,16 @@ export default function MonthDetailScreen({
           />
         }
         ListHeaderComponent={
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryAmounts}>
-              <SummaryItem label="Total" value={month.total} />
-              <SummaryItem label="Spent" value={month.spent} />
-              <SummaryItem label="To spend" value={month.toSpend} />
+          <View>
+            <Text style={styles.listheader}>Summary</Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryAmounts}>
+                <SummaryItem label="Total" value={month.total} />
+                <SummaryItem label="Spent" value={month.spent} />
+                <SummaryItem label="To spend" value={month.toSpend} />
+              </View>
             </View>
+            <Text style={styles.listheader}>Spends</Text>
           </View>
         }
         ListEmptyComponent={
@@ -570,82 +586,98 @@ export default function MonthDetailScreen({
 
       {/* Edit Month Modal */}
       <BottomSheetModal
-        visible={isMonthModalVisible}
-        onClose={() => setIsMonthModalVisible(false)}
+        visible={isMonthModalVisible || deleteConfirmation === 'month'}
+        onClose={() => {
+          if (isDeletingMonth) return;
+          setIsMonthModalVisible(false);
+          setDeleteConfirmation(null);
+        }}
         size="form"
       >
-          <View style={styles.modalCard}>
-            <View style={styles.monthModalHeader}>
-              <Text style={styles.modalTitle}>Update month</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Delete month"
-                disabled={isDeletingMonth}
-                onPress={confirmDeleteMonth}
-                style={({ pressed }) => [
-                  styles.deleteMonthButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                {isDeletingMonth ? (
-                  <ActivityIndicator color={Colors.status.error} />
-                ) : (
-                  <Ionicons
-                    name="trash-outline"
-                    size={ms(22)}
-                    color={Colors.status.error}
-                  />
-                )}
-              </Pressable>
-            </View>
-            <Text style={styles.inputLabel}>Month name</Text>
-            <TextInput
-              accessibilityLabel="Month name"
-              autoCapitalize="words"
-              maxLength={40}
-              onChangeText={setMonthTitle}
-              placeholder="Month name"
-              placeholderTextColor={Colors.neutral[60]}
-              style={styles.input}
-              value={monthTitle}
+        <View style={styles.modalCard}>
+          {deleteConfirmation === 'month' ? (
+            <DeleteConfirmationContent
+              title="Delete Month?"
+              message="This month will be permanently deleted."
+              isDeleting={isDeletingMonth}
+              onCancel={() => setDeleteConfirmation(null)}
+              onDelete={() => void removeMonth()}
             />
-            <View style={styles.monthDateFields}>
-              <View style={styles.monthDateField}>
-                <Text style={styles.inputLabel}>Month number</Text>
-                <TextInput
-                  accessibilityLabel="Month number"
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  onChangeText={(value) => setMonthNumber(sanitizeNumericInput(value))}
-                  placeholder="1-12"
-                  placeholderTextColor={Colors.neutral[60]}
-                  style={styles.input}
-                  value={monthNumber}
-                />
+          ) : (
+            <>
+              <View style={styles.monthModalHeader}>
+                <Text style={styles.modalTitle}>Update Month</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete month"
+                  disabled={isDeletingMonth}
+                  onPress={confirmDeleteMonth}
+                  style={({ pressed }) => [
+                    styles.deleteMonthButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {isDeletingMonth ? (
+                    <ActivityIndicator color={Colors.status.error} />
+                  ) : (
+                    <Ionicons
+                      name="trash-outline"
+                      size={ms(24)}
+                      color={Colors.status.error}
+                    />
+                  )}
+                </Pressable>
               </View>
-              <View style={styles.monthDateField}>
-                <Text style={styles.inputLabel}>Year</Text>
-                <TextInput
-                  accessibilityLabel="Month year"
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  onChangeText={(value) => setMonthYear(sanitizeNumericInput(value))}
-                  placeholder="Year"
-                  placeholderTextColor={Colors.neutral[60]}
-                  style={styles.input}
-                  value={monthYear}
-                />
+              <Text style={styles.inputLabel}>Month name</Text>
+              <TextInput
+                accessibilityLabel="Month name"
+                autoCapitalize="words"
+                maxLength={40}
+                onChangeText={setMonthTitle}
+                placeholder="Month name"
+                placeholderTextColor={Colors.neutral[60]}
+                style={styles.input}
+                value={monthTitle}
+              />
+              <View style={styles.monthDateFields}>
+                <View style={styles.monthDateField}>
+                  <Text style={styles.inputLabel}>Month number</Text>
+                  <TextInput
+                    accessibilityLabel="Month number"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    onChangeText={(value) => setMonthNumber(sanitizeNumericInput(value))}
+                    placeholder="1-12"
+                    placeholderTextColor={Colors.neutral[60]}
+                    style={styles.input}
+                    value={monthNumber}
+                  />
+                </View>
+                <View style={styles.monthDateField}>
+                  <Text style={styles.inputLabel}>Year</Text>
+                  <TextInput
+                    accessibilityLabel="Month year"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    onChangeText={(value) => setMonthYear(sanitizeNumericInput(value))}
+                    placeholder="Year"
+                    placeholderTextColor={Colors.neutral[60]}
+                    style={styles.input}
+                    value={monthYear}
+                  />
+                </View>
               </View>
-            </View>
-            <LoadingButton
-              disabled={isUpdatingMonth || isDeletingMonth}
-              isLoading={isUpdatingMonth}
-              onPress={saveMonth}
-              style={styles.saveButton}
-            >
-              <Text style={styles.saveButtonText}>Save changes</Text>
-            </LoadingButton>
-          </View>
+              <LoadingButton
+                disabled={isUpdatingMonth || isDeletingMonth}
+                isLoading={isUpdatingMonth}
+                onPress={saveMonth}
+                style={styles.saveButton}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </LoadingButton>
+            </>
+          )}
+        </View>
       </BottomSheetModal>
 
       {/* Deduction Source Modal */}
@@ -656,192 +688,202 @@ export default function MonthDetailScreen({
         }}
         size="compact"
       >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {pendingSpendChange?.completes ? 'Deduct spend' : 'Restore spend'}
-            </Text>
-            <Text style={styles.sourceDescription}>
-              {pendingSpendChange
-                ? `Choose where to ${pendingSpendChange.completes ? 'deduct' : 'restore'} ${formatCurrency(pendingSpendChange.amount)} ${pendingSpendChange.completes ? 'from' : 'to'}.`
-                : 'Choose an account.'}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} bank`}
-              disabled={isDeducting}
-              onPress={() => void handleBalanceChange('bank')}
-              style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
-            >
-              <Ionicons name="business-outline" size={ms(22)} color={Colors.brand.plum} />
-              <Text style={styles.sourceOptionText}>Bank</Text>
-              <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} cash`}
-              disabled={isDeducting}
-              onPress={() => void handleBalanceChange('cash')}
-              style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
-            >
-              <Ionicons name="cash-outline" size={ms(22)} color={Colors.brand.plum} />
-              <Text style={styles.sourceOptionText}>Cash</Text>
-              <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isDeducting}
-              onPress={cancelPendingSpendChange}
-              style={({ pressed }) => [styles.cancelOption, pressed && styles.pressed]}
-            >
-              <Text style={styles.cancelOptionText}>Cancel</Text>
-            </Pressable>
-          </View>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>
+            {pendingSpendChange?.completes ? 'Deduct spend' : 'Restore spend'}
+          </Text>
+          <Text style={styles.sourceDescription}>
+            {pendingSpendChange
+              ? `Choose where to ${pendingSpendChange.completes ? 'deduct' : 'restore'} ${formatCurrency(pendingSpendChange.amount)} ${pendingSpendChange.completes ? 'from' : 'to'}.`
+              : 'Choose an account.'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} bank`}
+            disabled={isDeducting}
+            onPress={() => void handleBalanceChange('bank')}
+            style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
+          >
+            <Ionicons name="business-outline" size={ms(22)} color={Colors.brand.plum} />
+            <Text style={styles.sourceOptionText}>Bank</Text>
+            <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} cash`}
+            disabled={isDeducting}
+            onPress={() => void handleBalanceChange('cash')}
+            style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
+          >
+            <Ionicons name="cash-outline" size={ms(22)} color={Colors.brand.plum} />
+            <Text style={styles.sourceOptionText}>Cash</Text>
+            <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isDeducting}
+            onPress={cancelPendingSpendChange}
+            style={({ pressed }) => [styles.cancelOption, pressed && styles.pressed]}
+          >
+            <Text style={styles.cancelOptionText}>Cancel</Text>
+          </Pressable>
+        </View>
       </BottomSheetModal>
 
       {/* Edit Spend Modal */}
       <BottomSheetModal
-        visible={isEditModalVisible}
-        onClose={() => setIsEditModalVisible(false)}
+        visible={isEditModalVisible || deleteConfirmation === 'spend'}
+        onClose={() => {
+          if (isDeleting) return;
+          setIsEditModalVisible(false);
+          setDeleteConfirmation(null);
+        }}
         size="form"
       >
-          <View style={styles.modalCard}>
-            <View style={styles.monthModalHeader}>
-              <Text style={styles.modalTitle}>Update spend</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Delete spend"
-                disabled={isDeleting || isSaving}
-                onPress={confirmDeleteSpend}
-                style={({ pressed }) => [
-                  styles.deleteMonthButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color={Colors.status.error} />
-                ) : (
-                  <Ionicons
-                    name="trash-outline"
-                    size={ms(22)}
-                    color={Colors.status.error}
-                  />
-                )}
-              </Pressable>
+        <View style={styles.modalCard}>
+          {deleteConfirmation === 'spend' ? (
+            <DeleteConfirmationContent
+              title="Delete Spend?"
+              message="This spend will be permanently deleted."
+              isDeleting={isDeleting}
+              onCancel={() => setDeleteConfirmation(null)}
+              onDelete={() => void removeSpend()}
+            />
+          ) : isSpendLoading ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator color={Colors.brand.plum} size={ms(36)} />
+              <Text style={styles.modalLoadingText}>Loading spend...</Text>
             </View>
-            {isSpendLoading ? (
-              <View style={styles.modalLoading}>
-                <ActivityIndicator color={Colors.brand.plum} />
-                <Text style={styles.modalLoadingText}>Loading spend...</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.inputLabel}>Title</Text>
-                <TextInput
-                  accessibilityLabel="Spend title"
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="Spend title"
-                  placeholderTextColor={Colors.neutral[60]}
-                  style={styles.input}
-                  maxLength={100}
-                />
-                <Text style={styles.inputLabel}>Amount</Text>
-                <TextInput
-                  accessibilityLabel="Spend amount"
-                  value={amount}
-                  placeholder="0.00"
-                  placeholderTextColor={Colors.neutral[60]}
-                  keyboardType="decimal-pad"
-                  onChangeText={(value) => setAmount(sanitizeNumericInput(value, 2))}
-                  style={styles.input}
-                />
-                <View style={styles.completedRow}>
-                  <Text style={styles.inputLabel}>Completed</Text>
-                  <Switch
-                    accessibilityLabel="Completed"
-                    value={isCompleted}
-                    onValueChange={setIsCompleted}
-                    trackColor={{ false: Colors.neutral[40], true: Colors.brand.teal }}
-                    thumbColor={Colors.neutral[10]}
-                  />
-                </View>
+          ) : (
+            <>
+              <View style={styles.monthModalHeader}>
+                <Text style={styles.modalTitle}>Update Spend</Text>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isSaving || isDeleting}
-                  onPress={() => {
-                    if (!selectedSpend) return;
-                    setIsEditModalVisible(false);
-                    navigation.navigate('SubSpendCreate', {
-                      monthId: month.id,
-                      subId: selectedSpend.id,
-                    });
-                  }}
+                  accessibilityLabel="Delete spend"
+                  disabled={isDeleting || isSaving}
+                  onPress={confirmDeleteSpend}
                   style={({ pressed }) => [
-                    styles.modalAction,
-                    (isSaving || isDeleting) && styles.disabledControl,
+                    styles.deleteMonthButton,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Ionicons name="add-circle-outline" size={ms(20)} color={Colors.brand.plum} />
-                  <Text style={styles.modalActionText}>Add Subspends</Text>
+                  {isDeleting ? (
+                    <ActivityIndicator color={Colors.status.error} />
+                  ) : (
+                    <Ionicons
+                      name="trash-outline"
+                      size={ms(22)}
+                      color={Colors.status.error}
+                    />
+                  )}
                 </Pressable>
-                <LoadingButton
-                  disabled={isDeleting}
-                  isLoading={isSaving}
-                  onPress={saveSpend}
-                  style={styles.saveButton}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </LoadingButton>
-              </>
-            )}
-          </View>
-      </BottomSheetModal>
-
-      <BottomSheetModal
-        visible={deleteConfirmation !== null}
-        onClose={() => {
-          if (!isDeleting && !isDeletingMonth) setDeleteConfirmation(null);
-        }}
-        size="compact"
-        keyboardAware={false}
-      >
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>
-            {deleteConfirmation === 'month' ? 'Delete month?' : 'Delete spend?'}
-          </Text>
-          <Text style={styles.sourceDescription}>
-            {deleteConfirmation === 'month'
-              ? 'This month will be permanently deleted.'
-              : 'This spend will be permanently deleted.'}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            disabled={isDeleting || isDeletingMonth}
-            onPress={() => setDeleteConfirmation(null)}
-            style={({ pressed }) => [
-              styles.cancelOption,
-              pressed && styles.pressed,
-              (isDeleting || isDeletingMonth) && styles.disabledControl,
-            ]}
-          >
-            <Text style={styles.cancelOptionText}>Cancel</Text>
-          </Pressable>
-          <LoadingButton
-            isLoading={deleteConfirmation === 'month' ? isDeletingMonth : isDeleting}
-            onPress={() => {
-              if (deleteConfirmation === 'month') {
-                return removeMonth();
-              }
-              return removeSpend();
-            }}
-            style={styles.confirmDeleteButton}
-          >
-            <Text style={styles.confirmDeleteText}>Delete</Text>
-          </LoadingButton>
+              </View>
+              <Text style={styles.inputLabel}>Title</Text>
+              <TextInput
+                accessibilityLabel="Spend title"
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Spend title"
+                placeholderTextColor={Colors.neutral[60]}
+                style={styles.input}
+                maxLength={100}
+              />
+              <Text style={styles.inputLabel}>Amount</Text>
+              <TextInput
+                accessibilityLabel="Spend amount"
+                value={amount}
+                placeholder="0.00"
+                placeholderTextColor={Colors.neutral[60]}
+                keyboardType="decimal-pad"
+                onChangeText={(value) => setAmount(sanitizeNumericInput(value, 2))}
+                style={styles.input}
+              />
+              <View style={styles.completedRow}>
+                <Text style={styles.inputLabel}>Completed</Text>
+                <Switch
+                  accessibilityLabel="Completed"
+                  value={isCompleted}
+                  onValueChange={setIsCompleted}
+                  trackColor={{ false: Colors.neutral[40], true: Colors.brand.teal }}
+                  thumbColor={Colors.neutral[10]}
+                />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSaving || isDeleting}
+                onPress={() => {
+                  if (!selectedSpend) return;
+                  setIsEditModalVisible(false);
+                  navigation.navigate('SubSpendCreate', {
+                    monthId: month.id,
+                    subId: selectedSpend.id,
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.modalAction,
+                  (isSaving || isDeleting) && styles.disabledControl,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name="add-circle-outline" size={ms(20)} color={Colors.brand.plum} />
+                <Text style={styles.modalActionText}>Add Subspends</Text>
+              </Pressable>
+              <LoadingButton
+                disabled={isDeleting}
+                isLoading={isSaving}
+                onPress={saveSpend}
+                style={styles.saveButton}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </LoadingButton>
+            </>
+          )}
         </View>
       </BottomSheetModal>
     </SafeAreaView>
+  );
+}
+
+function DeleteConfirmationContent({
+  title,
+  message,
+  isDeleting,
+  onCancel,
+  onDelete,
+}: {
+  title: string;
+  message: string;
+  isDeleting: boolean;
+  onCancel: () => void;
+  onDelete: () => void;
+}): React.JSX.Element {
+  return (
+    <>
+      <Text style={styles.modalTitle}>{title}</Text>
+      <Text style={styles.sourceDescription}>{message}</Text>
+      <LoadingButton
+        disabled={isDeleting}
+        isLoading={isDeleting}
+        onPress={onDelete}
+        style={styles.confirmDeleteButton}
+      >
+        <Text style={styles.confirmDeleteText}>Delete</Text>
+      </LoadingButton>
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDeleting}
+        onPress={onCancel}
+        style={({ pressed }) => [
+          styles.cancelOption,
+          styles.deleteCancelOption,
+          pressed && styles.pressed,
+          isDeleting && styles.disabledControl,
+        ]}
+      >
+        <Text style={styles.cancelOptionText}>Cancel</Text>
+      </Pressable>
+    </>
   );
 }
 
@@ -896,25 +938,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  pencilUnderline: {
-    position: 'absolute',
-    bottom: vs(7),
-    width: ms(16),
-    height: 1,
-    backgroundColor: Colors.brand.plum,
-  },
   listContent: {
     flexGrow: 1,
     paddingTop: vs(20),
-    paddingBottom: vs(100),
+    paddingBottom: vs(12),
   },
   summaryCard: {
     padding: s(16),
-    marginBottom: vs(20),
+    marginBottom: vs(16),
     borderRadius: ms(16),
     borderWidth: 1,
     borderColor: Colors.neutral[30],
     backgroundColor: Colors.neutral[10],
+  },
+  listheader: {
+    ...TextStyles.Medium16,
+    color: Colors.neutral[70],
+    marginBottom: vs(10),
   },
   summaryAmounts: {
     flexDirection: 'row',
@@ -1059,6 +1099,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: vs(4)
   },
   deleteMonthButton: {
     width: ms(40),
@@ -1071,6 +1112,8 @@ const styles = StyleSheet.create({
   monthDateFields: {
     flexDirection: 'row',
     gap: s(12),
+    paddingTop: vs(8),
+    paddingBottom: vs(20)
   },
   monthDateField: {
     flex: 1,
@@ -1103,6 +1146,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: vs(2),
   },
+  deleteCancelOption: {
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+  },
   cancelOptionText: {
     ...TextStyles.SemiBold14,
     color: Colors.neutral[70],
@@ -1112,7 +1160,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: ms(12),
-    backgroundColor: Colors.status.error,
+    backgroundColor: Colors.brand.plum,
   },
   confirmDeleteText: {
     ...TextStyles.SemiBold14,
@@ -1171,5 +1219,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
-  },
+  }
 });
