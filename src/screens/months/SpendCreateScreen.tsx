@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -13,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MonthsScreenProps } from '../../navigation/MonthsStack';
 
 // API
-import { addSpend } from '../../api/adapters/spends.adapter';
+import { addSpend, updateSpend } from '../../api/adapters/spends.adapter';
+import type { Spend } from '../../api/adapters/spends.adapter';
+import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
 import Header from '../../components/Header';
@@ -41,6 +46,9 @@ export default function SpendCreateScreen({
   const [amount, setAmount] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdSpend, setCreatedSpend] = useState<Spend | null>(null);
+  const [isDeductModalVisible, setIsDeductModalVisible] = useState(false);
+  const [isDeducting, setIsDeducting] = useState(false);
 
   const createSpend = async (): Promise<void> => {
     const trimmedTitle = title.trim();
@@ -55,18 +63,66 @@ export default function SpendCreateScreen({
 
     setIsSubmitting(true);
     try {
-      await addSpend({
+      const created = await addSpend({
         month_page: route.params.monthId,
         title: trimmedTitle,
         amount: Number(amount).toFixed(2),
-        is_completed: isCompleted,
+        is_completed: false,
       });
+      if (isCompleted) {
+        setCreatedSpend(created);
+        setIsDeductModalVisible(true);
+        return;
+      }
       showSuccessToast('Spend created.');
       navigation.goBack();
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to create spend. Please try again.'));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const cancelDeduction = (): void => {
+    setIsDeductModalVisible(false);
+    setCreatedSpend(null);
+    showSuccessToast('Spend created.');
+    navigation.goBack();
+  };
+
+  const deductCreatedSpend = async (source: 'bank' | 'cash'): Promise<void> => {
+    if (!createdSpend) return;
+    setIsDeducting(true);
+    let balanceAdjusted = false;
+    try {
+      await adjustDashboardBalance(source, -Number(createdSpend.amount));
+      balanceAdjusted = true;
+      await updateSpend(createdSpend.id, {
+        title: createdSpend.title,
+        amount: createdSpend.amount,
+        is_completed: true,
+      });
+      setIsDeductModalVisible(false);
+      showSuccessToast(`Spend deducted from ${source}.`);
+      navigation.goBack();
+    } catch (error) {
+      if (balanceAdjusted) {
+        try {
+          await adjustDashboardBalance(source, Number(createdSpend.amount));
+        } catch (rollbackError) {
+          showErrorToast(
+            `Spend remains incomplete, but balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
+          );
+          setIsDeductModalVisible(false);
+          navigation.goBack();
+          return;
+        }
+      }
+      showErrorToast(
+        getApiErrorMessage(error, 'Unable to deduct and complete this spend.'),
+      );
+    } finally {
+      setIsDeducting(false);
     }
   };
 
@@ -137,6 +193,62 @@ export default function SpendCreateScreen({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isDeductModalVisible}
+        onRequestClose={() => {
+          if (!isDeducting) cancelDeduction();
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            accessibilityLabel="Cancel spend deduction"
+            disabled={isDeducting}
+            onPress={cancelDeduction}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Deduct spend</Text>
+            <Text style={styles.modalDescription}>
+              Choose where to deduct {createdSpend?.amount ?? amount} from.
+            </Text>
+            {(['bank', 'cash'] as const).map((source) => (
+              <Pressable
+                key={source}
+                accessibilityRole="button"
+                accessibilityLabel={`Deduct from ${source}`}
+                disabled={isDeducting}
+                onPress={() => void deductCreatedSpend(source)}
+                style={({ pressed }) => [
+                  styles.sourceOption,
+                  pressed && styles.pressed,
+                  isDeducting && styles.disabledControl,
+                ]}
+              >
+                {isDeducting ? (
+                  <ActivityIndicator color={Colors.brand.plum} />
+                ) : (
+                  <Text style={styles.sourceOptionText}>
+                    {source === 'bank' ? 'Bank' : 'Cash'}
+                  </Text>
+                )}
+              </Pressable>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              disabled={isDeducting}
+              onPress={cancelDeduction}
+              style={({ pressed }) => [
+                styles.cancelOption,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.cancelText}>Create without completing</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -184,5 +296,55 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...TextStyles.SemiBold16,
     color: Colors.neutral[10],
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: s(24),
+    backgroundColor: 'rgba(23, 23, 23, 0.48)',
+  },
+  modalCard: {
+    padding: s(20),
+    borderRadius: ms(18),
+    backgroundColor: Colors.neutral[10],
+    gap: vs(10),
+  },
+  modalTitle: {
+    ...TextStyles.SemiBold20,
+    color: Colors.brand.deepPlum,
+  },
+  modalDescription: {
+    ...TextStyles.Regular14,
+    color: Colors.neutral[70],
+    marginBottom: vs(4),
+  },
+  sourceOption: {
+    minHeight: vs(52),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+    backgroundColor: Colors.neutral[10],
+  },
+  sourceOptionText: {
+    ...TextStyles.SemiBold16,
+    color: Colors.brand.deepPlum,
+  },
+  cancelOption: {
+    minHeight: vs(42),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: vs(2),
+  },
+  cancelText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[70],
+  },
+  disabledControl: {
+    opacity: 0.55,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

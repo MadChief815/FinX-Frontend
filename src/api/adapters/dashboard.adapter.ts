@@ -79,3 +79,14 @@ export async function updateDashboardAmounts(
     }),
   });
 }
+
+export async function adjustDashboardBalance(
+  source: 'bank' | 'cash',
+  amount: number,
+): Promise<void> {
+  const dashboard = await getDashboard();
+  const updatedAmount = dashboard[source] + amount;
+  await updateDashboardAmounts(
+    source === 'bank' ? { bank: updatedAmount } : { cash: updatedAmount },
+  );
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Components
 import { LoadingButton } from '../../components/LoadingButton';
@@ -121,6 +122,7 @@ export default function DashboardScreen(): React.JSX.Element {
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSavingAmounts, setIsSavingAmounts] = useState(false);
+  const hasLoadedDashboard = useRef(false);
 
   const loadDashboard = useCallback(async (showLoading = true): Promise<void> => {
     if (showLoading) {
@@ -135,15 +137,18 @@ export default function DashboardScreen(): React.JSX.Element {
         getApiErrorMessage(error, 'Unable to load dashboard data. Please try again.'),
       );
     } finally {
+      hasLoadedDashboard.current = true;
       if (showLoading) {
         setIsDashboardLoading(false);
       }
     }
   }, []);
 
-  useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadDashboard(!hasLoadedDashboard.current);
+    }, [loadDashboard]),
+  );
 
   const refreshDashboard = async (): Promise<void> => {
     setIsRefreshing(true);

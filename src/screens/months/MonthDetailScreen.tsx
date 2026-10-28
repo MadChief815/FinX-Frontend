@@ -29,11 +29,11 @@ import {
 import type { Spend } from '../../api/adapters/spends.adapter';
 import {
   deleteMonth,
-  deductMonth,
   getMonths,
   updateMonth,
 } from '../../api/adapters/months.adapter';
 import type { MonthListItem } from '../../api/adapters/months.adapter';
+import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
 import Header from '../../components/Header';
@@ -48,6 +48,17 @@ import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
 import { sanitizeNumericInput } from '../../utils/numericInput';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
+
+interface PendingSpendChange {
+  spendId: number;
+  amount: number;
+  completes: boolean;
+  payload: {
+    title: string;
+    amount: string;
+    is_completed: boolean;
+  };
+}
 
 type MonthDetailScreenProps = MonthsScreenProps<'MonthDetail'>;
 
@@ -81,6 +92,8 @@ export default function MonthDetailScreen({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeducting, setIsDeducting] = useState(false);
   const [isDeductModalVisible, setIsDeductModalVisible] = useState(false);
+  const [pendingSpendChange, setPendingSpendChange] =
+    useState<PendingSpendChange | null>(null);
   const [isSubspendWarningVisible, setIsSubspendWarningVisible] = useState(false);
   const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
   const [monthTitle, setMonthTitle] = useState(month.title);
@@ -88,7 +101,6 @@ export default function MonthDetailScreen({
   const [monthYear, setMonthYear] = useState(String(month.year));
   const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
-  const [updatingSpendIds, setUpdatingSpendIds] = useState<number[]>([]);
   const hasLoadedMonthData = useRef(false);
   const hasMonthChanges =
     monthTitle.trim() !== month.title ||
@@ -199,6 +211,32 @@ export default function MonthDetailScreen({
 
     setIsSaving(true);
     try {
+      if (isCompleted !== selectedSpend.isCompleted) {
+        const amountValue = parsedAmount.toFixed(2);
+        const currentSpend = await updateSpend(selectedSpend.id, {
+          title: trimmedTitle,
+          amount: amountValue,
+          is_completed: selectedSpend.isCompleted,
+        });
+        setSpends((current) =>
+          current.map((item) => item.id === currentSpend.id ? currentSpend : item),
+        );
+        setIsEditModalVisible(false);
+        await loadMonthData(false);
+        setPendingSpendChange({
+          spendId: currentSpend.id,
+          amount: parsedAmount,
+          completes: isCompleted,
+          payload: {
+            title: trimmedTitle,
+            amount: amountValue,
+            is_completed: isCompleted,
+          },
+        });
+        setIsDeductModalVisible(true);
+        return;
+      }
+
       const updatedSpend = await updateSpend(selectedSpend.id, {
         title: trimmedTitle,
         amount: parsedAmount.toFixed(2),
@@ -210,9 +248,6 @@ export default function MonthDetailScreen({
       setSpends(nextSpends);
       setIsEditModalVisible(false);
       await loadMonthData(false);
-      if (!selectedSpend.isCompleted && updatedSpend.isCompleted) {
-        setIsDeductModalVisible(true);
-      }
       showSuccessToast('Spend updated.');
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to update this spend.'));
@@ -245,15 +280,59 @@ export default function MonthDetailScreen({
     ]);
   };
 
-  const handleDeduct = async (source: 'cash' | 'bank'): Promise<void> => {
+  const cancelPendingSpendChange = (): void => {
+    setPendingSpendChange(null);
     setIsDeductModalVisible(false);
+  };
+
+  const handleBalanceChange = async (source: 'cash' | 'bank'): Promise<void> => {
+    if (!pendingSpendChange) return;
     setIsDeducting(true);
+    let balanceAdjusted = false;
     try {
-      await deductMonth(month.id, source);
+      await adjustDashboardBalance(
+        source,
+        pendingSpendChange.completes
+          ? -pendingSpendChange.amount
+          : pendingSpendChange.amount,
+      );
+      balanceAdjusted = true;
+      const updatedSpend = await updateSpend(
+        pendingSpendChange.spendId,
+        pendingSpendChange.payload,
+      );
+      setSpends((current) =>
+        current.map((item) => item.id === updatedSpend.id ? updatedSpend : item),
+      );
+      setPendingSpendChange(null);
+      setIsDeductModalVisible(false);
       await loadMonthData(false);
-      showSuccessToast(`Month deducted from ${source}.`);
+      showSuccessToast(
+        pendingSpendChange.completes
+          ? `Spend deducted from ${source}.`
+          : `Spend restored to ${source}.`,
+      );
     } catch (error) {
-      showErrorToast(getApiErrorMessage(error, 'Unable to deduct this month.'));
+      if (balanceAdjusted) {
+        try {
+          await adjustDashboardBalance(
+            source,
+            pendingSpendChange.completes
+              ? pendingSpendChange.amount
+              : -pendingSpendChange.amount,
+          );
+        } catch (rollbackError) {
+          setPendingSpendChange(null);
+          setIsDeductModalVisible(false);
+          showErrorToast(
+            `Spend status was not changed and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
+          );
+          return;
+        }
+      }
+      showErrorToast(
+        getApiErrorMessage(error, 'Unable to update spend and account balance.'),
+      );
     } finally {
       setIsDeducting(false);
     }
@@ -332,32 +411,22 @@ export default function MonthDetailScreen({
     ]);
   };
 
-  const toggleCompleted = async (spend: Spend): Promise<void> => {
+  const toggleCompleted = (spend: Spend): void => {
     if (spend.hasSubpage) {
       setIsSubspendWarningVisible(true);
       return;
     }
-    if (updatingSpendIds.includes(spend.id)) return;
-    setUpdatingSpendIds((current) => [...current, spend.id]);
-    try {
-      const updatedSpend = await updateSpend(spend.id, {
+    setPendingSpendChange({
+      spendId: spend.id,
+      amount: Number(spend.amount),
+      completes: !spend.isCompleted,
+      payload: {
         title: spend.title,
         amount: spend.amount,
         is_completed: !spend.isCompleted,
-      });
-      const nextSpends = spends.map((item) =>
-        item.id === spend.id ? updatedSpend : item,
-      );
-      setSpends(nextSpends);
-      await loadMonthData(false);
-      if (!spend.isCompleted && updatedSpend.isCompleted) {
-        setIsDeductModalVisible(true);
-      }
-    } catch (error) {
-      showErrorToast(getApiErrorMessage(error, 'Unable to update spend status.'));
-    } finally {
-      setUpdatingSpendIds((current) => current.filter((id) => id !== spend.id));
-    }
+      },
+    });
+    setIsDeductModalVisible(true);
   };
 
   const renderSpend = ({ item }: { item: Spend }): React.JSX.Element => (
@@ -366,11 +435,11 @@ export default function MonthDetailScreen({
         accessibilityRole="checkbox"
         accessibilityLabel={`${item.title}, ${item.isCompleted ? 'completed' : 'not completed'}`}
         accessibilityState={{ checked: item.isCompleted }}
-        disabled={updatingSpendIds.includes(item.id)}
+        disabled={isDeducting}
         onPress={() => void toggleCompleted(item)}
         style={[
           styles.checkButton,
-          updatingSpendIds.includes(item.id) && styles.disabledControl,
+          isDeducting && styles.disabledControl,
         ]}
       >
         <Ionicons
@@ -602,24 +671,31 @@ export default function MonthDetailScreen({
         animationType="fade"
         transparent
         visible={isDeductModalVisible}
-        onRequestClose={() => setIsDeductModalVisible(false)}
+        onRequestClose={() => {
+          if (!isDeducting) cancelPendingSpendChange();
+        }}
       >
         <View style={styles.modalBackdrop}>
           <Pressable
             accessibilityLabel="Close deduction source selector"
-            onPress={() => setIsDeductModalVisible(false)}
+            disabled={isDeducting}
+            onPress={cancelPendingSpendChange}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select source</Text>
+            <Text style={styles.modalTitle}>
+              {pendingSpendChange?.completes ? 'Deduct spend' : 'Restore spend'}
+            </Text>
             <Text style={styles.sourceDescription}>
-              Choose where to deduct this month's amount from.
+              {pendingSpendChange
+                ? `Choose where to ${pendingSpendChange.completes ? 'deduct' : 'restore'} ${formatCurrency(pendingSpendChange.amount)} ${pendingSpendChange.completes ? 'from' : 'to'}.`
+                : 'Choose an account.'}
             </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Deduct from bank"
+              accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} bank`}
               disabled={isDeducting}
-              onPress={() => void handleDeduct('bank')}
+              onPress={() => void handleBalanceChange('bank')}
               style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
             >
               <Ionicons name="business-outline" size={ms(22)} color={Colors.brand.plum} />
@@ -628,9 +704,9 @@ export default function MonthDetailScreen({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Deduct from cash"
+              accessibilityLabel={`${pendingSpendChange?.completes ? 'Deduct from' : 'Restore to'} cash`}
               disabled={isDeducting}
-              onPress={() => void handleDeduct('cash')}
+              onPress={() => void handleBalanceChange('cash')}
               style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
             >
               <Ionicons name="cash-outline" size={ms(22)} color={Colors.brand.plum} />
@@ -639,7 +715,8 @@ export default function MonthDetailScreen({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setIsDeductModalVisible(false)}
+              disabled={isDeducting}
+              onPress={cancelPendingSpendChange}
               style={({ pressed }) => [styles.cancelOption, pressed && styles.pressed]}
             >
               <Text style={styles.cancelOptionText}>Cancel</Text>
