@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MonthsStackParamList } from '../../navigation/types';
 
@@ -62,9 +63,11 @@ export default function MonthListScreen({
     }
   }, []);
 
-  useEffect(() => {
-    void loadMonths(true);
-  }, [loadMonths]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadMonths(true);
+    }, [loadMonths]),
+  );
 
   const refreshMonths = async (): Promise<void> => {
     setIsRefreshing(true);

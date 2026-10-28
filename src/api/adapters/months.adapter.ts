@@ -1,7 +1,10 @@
 import {
+  deleteMonth as deleteMonthService,
   deductMonth as deductMonthService,
   getMonths as getMonthsService,
+  updateMonth as updateMonthService,
 } from '../services/months.service';
+import type { MonthUpdatePayload } from '../services/months.service';
 import type { MonthResponse } from '../services/months.service';
 
 export interface MonthListItem {
@@ -41,4 +44,15 @@ export async function deductMonth(
   source: string,
 ): Promise<void> {
   await deductMonthService(monthId, source);
+}
+
+export async function updateMonth(
+  monthId: number,
+  payload: MonthUpdatePayload,
+): Promise<void> {
+  await updateMonthService(monthId, payload);
+}
+
+export async function deleteMonth(monthId: number): Promise<void> {
+  await deleteMonthService(monthId);
 }

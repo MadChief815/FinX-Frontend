@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,7 +27,12 @@ import {
   updateSpend,
 } from '../../api/adapters/spends.adapter';
 import type { Spend } from '../../api/adapters/spends.adapter';
-import { deductMonth } from '../../api/adapters/months.adapter';
+import {
+  deleteMonth,
+  deductMonth,
+  updateMonth,
+} from '../../api/adapters/months.adapter';
+import type { MonthListItem } from '../../api/adapters/months.adapter';
 
 // Components
 import Header from '../../components/Header';
@@ -40,6 +45,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
+import { sanitizeNumericInput } from '../../utils/numericInput';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 type MonthDetailScreenProps = MonthsScreenProps<'MonthDetail'>;
@@ -67,7 +73,7 @@ export default function MonthDetailScreen({
   navigation,
   route,
 }: MonthDetailScreenProps): React.JSX.Element {
-  const { month } = route.params;
+  const [month, setMonth] = useState<MonthListItem>(route.params.month);
   const [spends, setSpends] = useState<Spend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -83,7 +89,25 @@ export default function MonthDetailScreen({
   const [isDeducting, setIsDeducting] = useState(false);
   const [isDeductModalVisible, setIsDeductModalVisible] = useState(false);
   const [spendsNeedDeduction, setSpendsNeedDeduction] = useState(false);
+  const [isSubspendWarningVisible, setIsSubspendWarningVisible] = useState(false);
+  const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
+  const [monthTitle, setMonthTitle] = useState(month.title);
+  const [monthNumber, setMonthNumber] = useState(String(month.month));
+  const [monthYear, setMonthYear] = useState(String(month.year));
+  const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
+  const [isDeletingMonth, setIsDeletingMonth] = useState(false);
+  const [updatingSpendIds, setUpdatingSpendIds] = useState<number[]>([]);
   const spendSnapshot = useRef<string | null>(null);
+  const hasMonthChanges =
+    monthTitle.trim() !== month.title ||
+    Number(monthNumber) !== month.month ||
+    Number(monthYear) !== month.year;
+
+  useEffect(() => {
+    if (!isSubspendWarningVisible) return undefined;
+    const timeout = setTimeout(() => setIsSubspendWarningVisible(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [isSubspendWarningVisible]);
 
   const loadSpends = useCallback(async (showLoading: boolean): Promise<void> => {
     if (showLoading) setIsLoading(true);
@@ -214,7 +238,80 @@ export default function MonthDetailScreen({
     }
   };
 
+  const openMonthEditor = (): void => {
+    setMonthTitle(month.title);
+    setMonthNumber(String(month.month));
+    setMonthYear(String(month.year));
+    setIsMonthModalVisible(true);
+  };
+
+  const saveMonth = async (): Promise<void> => {
+    const trimmedTitle = monthTitle.trim();
+    const numericMonth = Number(monthNumber);
+    const numericYear = Number(monthYear);
+    if (!trimmedTitle) {
+      showErrorToast('Enter a month name.');
+      return;
+    }
+    if (!Number.isInteger(numericMonth) || numericMonth < 1 || numericMonth > 12) {
+      showErrorToast('Enter a month number between 1 and 12.');
+      return;
+    }
+    if (!Number.isInteger(numericYear) || numericYear < 1) {
+      showErrorToast('Enter a valid year.');
+      return;
+    }
+
+    setIsUpdatingMonth(true);
+    try {
+      await updateMonth(month.id, {
+        title: trimmedTitle,
+        month: numericMonth,
+        year: numericYear,
+      });
+      setMonth((current) => ({
+        ...current,
+        title: trimmedTitle,
+        month: numericMonth,
+        year: numericYear,
+      }));
+      setIsMonthModalVisible(false);
+      showSuccessToast('Month updated.');
+    } catch (error) {
+      showErrorToast(getApiErrorMessage(error, 'Unable to update this month.'));
+    } finally {
+      setIsUpdatingMonth(false);
+    }
+  };
+
+  const removeMonth = async (): Promise<void> => {
+    setIsDeletingMonth(true);
+    try {
+      await deleteMonth(month.id);
+      setIsMonthModalVisible(false);
+      showSuccessToast('Month deleted.');
+      navigation.goBack();
+    } catch (error) {
+      showErrorToast(getApiErrorMessage(error, 'Unable to delete this month.'));
+    } finally {
+      setIsDeletingMonth(false);
+    }
+  };
+
+  const confirmDeleteMonth = (): void => {
+    Alert.alert('Delete month?', 'This month will be permanently deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void removeMonth() },
+    ]);
+  };
+
   const toggleCompleted = async (spend: Spend): Promise<void> => {
+    if (spend.hasSubpage) {
+      setIsSubspendWarningVisible(true);
+      return;
+    }
+    if (updatingSpendIds.includes(spend.id)) return;
+    setUpdatingSpendIds((current) => [...current, spend.id]);
     try {
       const updatedSpend = await updateSpend(spend.id, {
         title: spend.title,
@@ -229,6 +326,8 @@ export default function MonthDetailScreen({
       setSpendsNeedDeduction(true);
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to update spend status.'));
+    } finally {
+      setUpdatingSpendIds((current) => current.filter((id) => id !== spend.id));
     }
   };
 
@@ -238,8 +337,12 @@ export default function MonthDetailScreen({
         accessibilityRole="checkbox"
         accessibilityLabel={`${item.title}, ${item.isCompleted ? 'completed' : 'not completed'}`}
         accessibilityState={{ checked: item.isCompleted }}
+        disabled={updatingSpendIds.includes(item.id)}
         onPress={() => void toggleCompleted(item)}
-        style={styles.checkButton}
+        style={[
+          styles.checkButton,
+          updatingSpendIds.includes(item.id) && styles.disabledControl,
+        ]}
       >
         <Ionicons
           name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
@@ -277,12 +380,22 @@ export default function MonthDetailScreen({
   return (
     <SafeAreaView style={screenStyles.container}>
       {/* Header */}
-      <Header
-        title={`${month.title} ${month.year}`}
-        back
-        onBackPress={() => navigation.goBack()}
-        titleColor={Colors.brand.deepPlum}
-      />
+      <View style={styles.headerContainer}>
+        <Header
+          title={`${month.title} ${month.year}`}
+          back
+          onBackPress={() => navigation.goBack()}
+          titleColor={Colors.brand.deepPlum}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit month"
+          onPress={openMonthEditor}
+          style={({ pressed }) => [styles.headerEditButton, pressed && styles.pressed]}
+        >
+          <Ionicons name="pencil" size={ms(20)} color={Colors.brand.plum} />
+        </Pressable>
+      </View>
 
       {/* Spends */}
       <FlatList
@@ -359,6 +472,122 @@ export default function MonthDetailScreen({
       >
         <Ionicons name="add" size={ms(30)} color={Colors.neutral[10]} />
       </Pressable>
+
+      {/* Subspend Completion Warning */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isSubspendWarningVisible}
+        onRequestClose={() => setIsSubspendWarningVisible(false)}
+      >
+        <View style={styles.warningBackdrop}>
+          <View accessibilityRole="alert" style={styles.warningCard}>
+            <Ionicons
+              name="warning"
+              size={ms(28)}
+              color={Colors.brand.orchid}
+            />
+            <Text style={styles.warningTitle}>Subspends pending</Text>
+            <Text style={styles.warningMessage}>
+              This spend will be completed automatically when all subspends are completed.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Month Modal */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isMonthModalVisible}
+        onRequestClose={() => setIsMonthModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <Pressable
+            accessibilityLabel="Close month editor"
+            onPress={() => setIsMonthModalVisible(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.modalCard}>
+            <View style={styles.monthModalHeader}>
+              <Text style={styles.modalTitle}>Update month</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete month"
+                disabled={isDeletingMonth}
+                onPress={confirmDeleteMonth}
+                style={({ pressed }) => [
+                  styles.deleteMonthButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {isDeletingMonth ? (
+                  <ActivityIndicator color={Colors.status.error} />
+                ) : (
+                  <Ionicons
+                    name="trash-outline"
+                    size={ms(22)}
+                    color={Colors.status.error}
+                  />
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.inputLabel}>Month name</Text>
+            <TextInput
+              accessibilityLabel="Month name"
+              autoCapitalize="words"
+              maxLength={40}
+              onChangeText={setMonthTitle}
+              placeholder="Month name"
+              placeholderTextColor={Colors.neutral[60]}
+              style={styles.input}
+              value={monthTitle}
+            />
+            <View style={styles.monthDateFields}>
+              <View style={styles.monthDateField}>
+                <Text style={styles.inputLabel}>Month number</Text>
+                <TextInput
+                  accessibilityLabel="Month number"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  onChangeText={(value) => setMonthNumber(sanitizeNumericInput(value))}
+                  placeholder="1-12"
+                  placeholderTextColor={Colors.neutral[60]}
+                  style={styles.input}
+                  value={monthNumber}
+                />
+              </View>
+              <View style={styles.monthDateField}>
+                <Text style={styles.inputLabel}>Year</Text>
+                <TextInput
+                  accessibilityLabel="Month year"
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  onChangeText={(value) => setMonthYear(sanitizeNumericInput(value))}
+                  placeholder="Year"
+                  placeholderTextColor={Colors.neutral[60]}
+                  style={styles.input}
+                  value={monthYear}
+                />
+              </View>
+            </View>
+            <LoadingButton
+              disabled={!hasMonthChanges || isUpdatingMonth || isDeletingMonth}
+              isLoading={isUpdatingMonth}
+              onPress={saveMonth}
+              style={[
+                styles.saveButton,
+                !hasMonthChanges && styles.inactiveSaveButton,
+              ]}
+            >
+              <Text style={styles.saveButtonText}>Save changes</Text>
+            </LoadingButton>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Deduction Source Modal */}
       <Modal
@@ -450,10 +679,10 @@ export default function MonthDetailScreen({
                 <TextInput
                   accessibilityLabel="Spend amount"
                   value={amount}
-                  onChangeText={setAmount}
                   placeholder="0.00"
                   placeholderTextColor={Colors.neutral[60]}
                   keyboardType="decimal-pad"
+                  onChangeText={(value) => setAmount(sanitizeNumericInput(value, 2))}
                   style={styles.input}
                 />
                 <View style={styles.completedRow}>
@@ -468,7 +697,7 @@ export default function MonthDetailScreen({
                 </View>
                 <LoadingButton
                   isLoading={isSaving}
-                  onPress={() => void saveSpend()}
+                  onPress={saveSpend}
                   style={styles.saveButton}
                 >
                   <Text style={styles.saveButtonText}>Save changes</Text>
@@ -545,6 +774,19 @@ function EmptyState({
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    position: 'relative',
+  },
+  headerEditButton: {
+    position: 'absolute',
+    top: vs(10),
+    right: s(4),
+    width: ms(44),
+    height: ms(44),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
   listContent: {
     flexGrow: 1,
     paddingTop: vs(20),
@@ -620,6 +862,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabledControl: {
+    opacity: 0.55,
+  },
   spendDetails: {
     flex: 1,
     gap: vs(4),
@@ -693,6 +938,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(24),
     backgroundColor: 'rgba(23, 23, 23, 0.48)',
   },
+  warningBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(32),
+    backgroundColor: 'rgba(23, 23, 23, 0.40)',
+  },
+  warningCard: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: s(22),
+    paddingVertical: vs(22),
+    borderRadius: ms(18),
+    backgroundColor: Colors.neutral[10],
+  },
+  warningTitle: {
+    ...TextStyles.SemiBold16,
+    color: Colors.brand.deepPlum,
+    marginTop: vs(8),
+    textAlign: 'center',
+  },
+  warningMessage: {
+    ...TextStyles.Regular14,
+    color: Colors.neutral[70],
+    marginTop: vs(6),
+    textAlign: 'center',
+  },
   modalCard: {
     padding: s(20),
     borderRadius: ms(18),
@@ -703,6 +975,30 @@ const styles = StyleSheet.create({
     ...TextStyles.SemiBold20,
     color: Colors.brand.deepPlum,
     marginBottom: vs(4),
+  },
+  monthModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  deleteMonthButton: {
+    width: ms(40),
+    height: ms(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -vs(8),
+    marginRight: -s(8),
+  },
+  monthDateFields: {
+    flexDirection: 'row',
+    gap: s(12),
+  },
+  monthDateField: {
+    flex: 1,
+    gap: vs(8),
+  },
+  inactiveSaveButton: {
+    opacity: 0.5,
   },
   sourceDescription: {
     ...TextStyles.Regular14,
@@ -793,10 +1089,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.status.error,
     borderRadius: ms(12),
+    backgroundColor: Colors.status.error,
   },
   deleteButtonText: {
     ...TextStyles.SemiBold14,
-    color: Colors.status.error,
+    color: Colors.neutral[10],
   },
   pressed: {
     opacity: 0.72,

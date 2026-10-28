@@ -25,6 +25,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
+import { sanitizeNumericInput } from '../../utils/numericInput';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 type SpendCreateScreenProps = MonthsScreenProps<'SpendCreate'>;
@@ -108,7 +109,7 @@ export default function SpendCreateScreen({
             <TextInput
               accessibilityLabel="Spend amount"
               keyboardType="decimal-pad"
-              onChangeText={setAmount}
+              onChangeText={(value) => setAmount(sanitizeNumericInput(value, 2))}
               placeholder="0.00"
               placeholderTextColor={Colors.neutral[60]}
               style={styles.input}
@@ -128,7 +129,7 @@ export default function SpendCreateScreen({
 
             <LoadingButton
               isLoading={isSubmitting}
-              onPress={() => void createSpend()}
+              onPress={createSpend}
               style={styles.submitButton}
             >
               <Text style={styles.submitButtonText}>Create spend</Text>
