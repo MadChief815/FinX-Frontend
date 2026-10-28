@@ -39,7 +39,12 @@ export default function MonthsStack(): React.JSX.Element {
       <Stack.Screen
         name="MonthCreate"
         component={MonthCreateScreen}
-        options={{ presentation: 'modal' }}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.85],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
       />
       <Stack.Screen
         name="MonthDetail"
@@ -48,7 +53,12 @@ export default function MonthsStack(): React.JSX.Element {
       <Stack.Screen
         name="SpendCreate"
         component={SpendCreateScreen}
-        options={{ presentation: 'modal' }}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.85],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
       />
       <Stack.Screen
         name="SubPage"
@@ -57,7 +67,12 @@ export default function MonthsStack(): React.JSX.Element {
       <Stack.Screen
         name="SubSpendCreate"
         component={SubSpendCreateScreen}
-        options={{ presentation: 'modal' }}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.85],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
       />
     </Stack.Navigator>
   );

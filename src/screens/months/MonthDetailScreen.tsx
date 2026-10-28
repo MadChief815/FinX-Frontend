@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -37,6 +33,7 @@ import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
 import Header from '../../components/Header';
+import { BottomSheetModal } from '../../components/BottomSheetModal';
 import { LoadingButton } from '../../components/LoadingButton';
 import { Skeleton } from '../../components/Skeleton';
 
@@ -96,6 +93,8 @@ export default function MonthDetailScreen({
     useState<PendingSpendChange | null>(null);
   const [isSubspendWarningVisible, setIsSubspendWarningVisible] = useState(false);
   const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] =
+    useState<'spend' | 'month' | null>(null);
   const [monthTitle, setMonthTitle] = useState(month.title);
   const [monthNumber, setMonthNumber] = useState(String(month.month));
   const [monthYear, setMonthYear] = useState(String(month.year));
@@ -264,6 +263,7 @@ export default function MonthDetailScreen({
       const nextSpends = spends.filter((item) => item.id !== selectedSpend.id);
       setSpends(nextSpends);
       setIsEditModalVisible(false);
+      setDeleteConfirmation(null);
       await loadMonthData(false);
       showSuccessToast('Spend deleted.');
     } catch (error) {
@@ -274,10 +274,7 @@ export default function MonthDetailScreen({
   };
 
   const confirmDeleteSpend = (): void => {
-    Alert.alert('Delete spend?', 'This spend will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void removeSpend() },
-    ]);
+    setDeleteConfirmation('spend');
   };
 
   const cancelPendingSpendChange = (): void => {
@@ -395,6 +392,7 @@ export default function MonthDetailScreen({
     try {
       await deleteMonth(month.id);
       setIsMonthModalVisible(false);
+      setDeleteConfirmation(null);
       showSuccessToast('Month deleted.');
       navigation.goBack();
     } catch (error) {
@@ -405,10 +403,7 @@ export default function MonthDetailScreen({
   };
 
   const confirmDeleteMonth = (): void => {
-    Alert.alert('Delete month?', 'This month will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void removeMonth() },
-    ]);
+    setDeleteConfirmation('month');
   };
 
   const toggleCompleted = (spend: Spend): void => {
@@ -554,43 +549,31 @@ export default function MonthDetailScreen({
       </Pressable>
 
       {/* Subspend Completion Warning */}
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
         visible={isSubspendWarningVisible}
-        onRequestClose={() => setIsSubspendWarningVisible(false)}
+        onClose={() => setIsSubspendWarningVisible(false)}
+        size="compact"
+        keyboardAware={false}
       >
-        <View style={styles.warningBackdrop}>
-          <View accessibilityRole="alert" style={styles.warningCard}>
-            <Ionicons
-              name="warning"
-              size={ms(28)}
-              color={Colors.brand.orchid}
-            />
-            <Text style={styles.warningTitle}>Subspends pending</Text>
-            <Text style={styles.warningMessage}>
-              This spend will be completed automatically when all subspends are completed.
-            </Text>
-          </View>
+        <View accessibilityRole="alert" style={styles.warningCard}>
+          <Ionicons
+            name="warning"
+            size={ms(28)}
+            color={Colors.brand.orchid}
+          />
+          <Text style={styles.warningTitle}>Subspends pending</Text>
+          <Text style={styles.warningMessage}>
+            This spend will be completed automatically when all subspends are completed.
+          </Text>
         </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Edit Month Modal */}
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
         visible={isMonthModalVisible}
-        onRequestClose={() => setIsMonthModalVisible(false)}
+        onClose={() => setIsMonthModalVisible(false)}
+        size="form"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalBackdrop}
-        >
-          <Pressable
-            accessibilityLabel="Close month editor"
-            onPress={() => setIsMonthModalVisible(false)}
-            style={StyleSheet.absoluteFill}
-          />
           <View style={styles.modalCard}>
             <View style={styles.monthModalHeader}>
               <Text style={styles.modalTitle}>Update month</Text>
@@ -663,25 +646,16 @@ export default function MonthDetailScreen({
               <Text style={styles.saveButtonText}>Save changes</Text>
             </LoadingButton>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Deduction Source Modal */}
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
         visible={isDeductModalVisible}
-        onRequestClose={() => {
+        onClose={() => {
           if (!isDeducting) cancelPendingSpendChange();
         }}
+        size="compact"
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            accessibilityLabel="Close deduction source selector"
-            disabled={isDeducting}
-            onPress={cancelPendingSpendChange}
-            style={StyleSheet.absoluteFill}
-          />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
               {pendingSpendChange?.completes ? 'Deduct spend' : 'Restore spend'}
@@ -722,25 +696,14 @@ export default function MonthDetailScreen({
               <Text style={styles.cancelOptionText}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Edit Spend Modal */}
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
         visible={isEditModalVisible}
-        onRequestClose={() => setIsEditModalVisible(false)}
+        onClose={() => setIsEditModalVisible(false)}
+        size="form"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalBackdrop}
-        >
-          <Pressable
-            accessibilityLabel="Close spend editor"
-            onPress={() => setIsEditModalVisible(false)}
-            style={StyleSheet.absoluteFill}
-          />
           <View style={styles.modalCard}>
             <View style={styles.monthModalHeader}>
               <Text style={styles.modalTitle}>Update spend</Text>
@@ -833,8 +796,51 @@ export default function MonthDetailScreen({
               </>
             )}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        visible={deleteConfirmation !== null}
+        onClose={() => {
+          if (!isDeleting && !isDeletingMonth) setDeleteConfirmation(null);
+        }}
+        size="compact"
+        keyboardAware={false}
+      >
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>
+            {deleteConfirmation === 'month' ? 'Delete month?' : 'Delete spend?'}
+          </Text>
+          <Text style={styles.sourceDescription}>
+            {deleteConfirmation === 'month'
+              ? 'This month will be permanently deleted.'
+              : 'This spend will be permanently deleted.'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isDeleting || isDeletingMonth}
+            onPress={() => setDeleteConfirmation(null)}
+            style={({ pressed }) => [
+              styles.cancelOption,
+              pressed && styles.pressed,
+              (isDeleting || isDeletingMonth) && styles.disabledControl,
+            ]}
+          >
+            <Text style={styles.cancelOptionText}>Cancel</Text>
+          </Pressable>
+          <LoadingButton
+            isLoading={deleteConfirmation === 'month' ? isDeletingMonth : isDeleting}
+            onPress={() => {
+              if (deleteConfirmation === 'month') {
+                return removeMonth();
+              }
+              return removeSpend();
+            }}
+            style={styles.confirmDeleteButton}
+          >
+            <Text style={styles.confirmDeleteText}>Delete</Text>
+          </LoadingButton>
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -1019,25 +1025,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 5,
   },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: s(24),
-    backgroundColor: 'rgba(23, 23, 23, 0.48)',
-  },
-  warningBackdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(32),
-    backgroundColor: 'rgba(23, 23, 23, 0.40)',
-  },
   warningCard: {
     width: '100%',
     alignItems: 'center',
     paddingHorizontal: s(22),
     paddingVertical: vs(22),
-    borderRadius: ms(18),
     backgroundColor: Colors.neutral[10],
   },
   warningTitle: {
@@ -1053,8 +1045,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalCard: {
+    width: '100%',
     padding: s(20),
-    borderRadius: ms(18),
     backgroundColor: Colors.neutral[10],
     gap: vs(10),
   },
@@ -1114,6 +1106,17 @@ const styles = StyleSheet.create({
   cancelOptionText: {
     ...TextStyles.SemiBold14,
     color: Colors.neutral[70],
+  },
+  confirmDeleteButton: {
+    minHeight: vs(46),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: ms(12),
+    backgroundColor: Colors.status.error,
+  },
+  confirmDeleteText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[10],
   },
   modalLoading: {
     minHeight: vs(180),

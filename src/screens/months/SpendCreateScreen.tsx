@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -22,6 +20,7 @@ import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
 import Header from '../../components/Header';
+import { BottomSheetModal } from '../../components/BottomSheetModal';
 import { LoadingButton } from '../../components/LoadingButton';
 
 // Utilities
@@ -127,16 +126,12 @@ export default function SpendCreateScreen({
   };
 
   return (
-    <SafeAreaView style={screenStyles.container}>
+    <SafeAreaView style={[screenStyles.container, styles.root]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.content}>
           {/* Header */}
           <Header
             title="Create Spend"
@@ -191,23 +186,15 @@ export default function SpendCreateScreen({
               <Text style={styles.submitButtonText}>Create spend</Text>
             </LoadingButton>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
         visible={isDeductModalVisible}
-        onRequestClose={() => {
+        onClose={() => {
           if (!isDeducting) cancelDeduction();
         }}
+        size="compact"
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            accessibilityLabel="Cancel spend deduction"
-            disabled={isDeducting}
-            onPress={cancelDeduction}
-            style={StyleSheet.absoluteFill}
-          />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Deduct spend</Text>
             <Text style={styles.modalDescription}>
@@ -247,8 +234,7 @@ export default function SpendCreateScreen({
               <Text style={styles.cancelText}>Create without completing</Text>
             </Pressable>
           </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -257,8 +243,12 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  root: {
+    paddingHorizontal: 0,
+  },
   content: {
     flexGrow: 1,
+    paddingHorizontal: s(20),
     paddingBottom: vs(24),
   },
   form: {
@@ -297,15 +287,9 @@ const styles = StyleSheet.create({
     ...TextStyles.SemiBold16,
     color: Colors.neutral[10],
   },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: s(24),
-    backgroundColor: 'rgba(23, 23, 23, 0.48)',
-  },
   modalCard: {
+    width: '100%',
     padding: s(20),
-    borderRadius: ms(18),
     backgroundColor: Colors.neutral[10],
     gap: vs(10),
   },

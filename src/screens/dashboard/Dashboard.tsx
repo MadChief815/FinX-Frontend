@@ -1,8 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 // Components
 import { LoadingButton } from '../../components/LoadingButton';
+import { BottomSheetModal } from '../../components/BottomSheetModal';
 import { Skeleton } from '../../components/Skeleton';
 import { Colors } from '../../utils/Colors';
 import { ms, s, vs } from '../../utils/Responsive';
@@ -862,83 +860,66 @@ export default function DashboardScreen(): React.JSX.Element {
         </View>
       </ScrollView>
 
-      <Modal
+      <BottomSheetModal
         visible={isAmountModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsAmountModalVisible(false)}
+        onClose={() => setIsAmountModalVisible(false)}
+        size="large"
+        contentStyle={styles.amountModalCard}
       >
-        <KeyboardAvoidingView
-          style={styles.amountModalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close amount editor"
-            onPress={() => setIsAmountModalVisible(false)}
-            style={styles.amountModalBackdrop}
-          />
-          <View style={styles.amountModalCard}>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.amountModalContent}
+        <View style={styles.amountModalContent}>
+          <View style={styles.amountModalHeader}>
+            <View style={styles.amountModalHeading}>
+              <Text style={styles.amountModalTitle}>Edit amounts</Text>
+              <Text style={styles.amountModalSubtitle}>
+                Enter whole amounts in rupees
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close amount editor"
+              onPress={() => setIsAmountModalVisible(false)}
+              style={({ pressed }) => [
+                styles.amountModalClose,
+                pressed && styles.cardPressed,
+              ]}
             >
-              <View style={styles.amountModalHeader}>
-                <View style={styles.amountModalHeading}>
-                  <Text style={styles.amountModalTitle}>Edit amounts</Text>
-                  <Text style={styles.amountModalSubtitle}>
-                    Enter whole amounts in rupees
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close amount editor"
-                  onPress={() => setIsAmountModalVisible(false)}
-                  style={({ pressed }) => [
-                    styles.amountModalClose,
-                    pressed && styles.cardPressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="close"
-                    size={ms(22)}
-                    color={Colors.brand.deepPlum}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no"
-                  />
-                </Pressable>
-              </View>
-
-              {ACCOUNT_AMOUNT_FIELDS.map(({ key, label }) => (
-                <View key={key} style={styles.amountField}>
-                  <Text style={styles.amountFieldLabel}>{label}</Text>
-                  <View style={styles.amountInputContainer}>
-                    <Text style={styles.amountInputPrefix}>Rs.</Text>
-                    <TextInput
-                      accessibilityLabel={`${label} amount`}
-                      value={amountDraft[key]}
-                      onChangeText={(value) => updateAmountDraft(key, value)}
-                      keyboardType="number-pad"
-                      maxLength={16}
-                      selectTextOnFocus
-                      style={styles.amountInput}
-                    />
-                  </View>
-                </View>
-              ))}
-
-              <LoadingButton
-                isLoading={isSavingAmounts}
-                onPress={saveAccountAmounts}
-                style={styles.amountSaveButton}
-              >
-                <Text style={styles.amountSaveButtonText}>Save amounts</Text>
-              </LoadingButton>
-            </ScrollView>
+              <Ionicons
+                name="close"
+                size={ms(22)}
+                color={Colors.brand.deepPlum}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+            </Pressable>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          {ACCOUNT_AMOUNT_FIELDS.map(({ key, label }) => (
+            <View key={key} style={styles.amountField}>
+              <Text style={styles.amountFieldLabel}>{label}</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.amountInputPrefix}>Rs.</Text>
+                <TextInput
+                  accessibilityLabel={`${label} amount`}
+                  value={amountDraft[key]}
+                  onChangeText={(value) => updateAmountDraft(key, value)}
+                  keyboardType="number-pad"
+                  maxLength={16}
+                  selectTextOnFocus
+                  style={styles.amountInput}
+                />
+              </View>
+            </View>
+          ))}
+
+          <LoadingButton
+            isLoading={isSavingAmounts}
+            onPress={saveAccountAmounts}
+            style={styles.amountSaveButton}
+          >
+            <Text style={styles.amountSaveButtonText}>Save amounts</Text>
+          </LoadingButton>
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -1390,14 +1371,6 @@ const styles = StyleSheet.create({
     color: Colors.neutral[30],
     flex: 1,
   },
-  amountModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(42, 18, 68, 0.72)',
-  },
-  amountModalBackdrop: {
-    flex: 1,
-  },
   amountModalCard: {
     width: '100%',
     maxHeight: '92%',
@@ -1405,7 +1378,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: ms(26),
     backgroundColor: '#E8DDF3',
     overflow: 'hidden',
-    paddingBottom: Platform.OS === 'ios' ? vs(12) : vs(8),
   },
   amountModalContent: {
     padding: s(22),
