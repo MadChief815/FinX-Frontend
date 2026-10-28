@@ -245,6 +245,7 @@ export default function DashboardScreen(): React.JSX.Element {
 
     if (Object.keys(changedAmounts).length === 0) {
       setIsAmountModalVisible(false);
+      showSuccessToast('Nothing to Save');
       return;
     }
 

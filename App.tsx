@@ -2,12 +2,15 @@ import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast } from 'react-native-toast-message';
+import type { ToastConfig } from 'react-native-toast-message';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import RootNavigator from './src/navigation/RootNavigator';
 import SplashScreen from './src/screens/auth/SplashScreen';
 import { useAuthStore } from './src/store/authStore';
 import { showErrorToast } from './src/utils/toast';
+import { Colors } from './src/utils/Colors';
+import { s } from './src/utils/Responsive';
 
 // Fonts
 import {
@@ -19,6 +22,23 @@ import {
 } from '@expo-google-fonts/inter';
 
 void ExpoSplashScreen.preventAutoHideAsync();
+
+const toastConfig: ToastConfig = {
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{
+        width: '92%',
+        alignSelf: 'flex-end',
+        marginRight: s(12),
+        backgroundColor: '#ffffff',
+        borderLeftColor: Colors.brand.plum,
+      }}
+      text1Style={{ color: Colors.brand.deepPlum }}
+      text2Style={{ color: Colors.brand.plum }}
+    />
+  ),
+};
 
 export default function App(): React.JSX.Element | null {
   const [fontsLoaded, fontError] = useFonts({
@@ -58,7 +78,7 @@ export default function App(): React.JSX.Element | null {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <RootNavigator />
-        <Toast />
+        <Toast config={toastConfig} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

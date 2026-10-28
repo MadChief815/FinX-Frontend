@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -46,6 +46,7 @@ export default function MonthListScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const hasLoadedMonths = useRef(false);
 
   const loadMonths = useCallback(async (showLoading: boolean): Promise<void> => {
     if (showLoading) {
@@ -57,6 +58,7 @@ export default function MonthListScreen({
     } catch {
       setLoadError(true);
     } finally {
+      hasLoadedMonths.current = true;
       if (showLoading) {
         setIsLoading(false);
       }
@@ -65,7 +67,7 @@ export default function MonthListScreen({
 
   useFocusEffect(
     useCallback(() => {
-      void loadMonths(true);
+      void loadMonths(!hasLoadedMonths.current);
     }, [loadMonths]),
   );
 

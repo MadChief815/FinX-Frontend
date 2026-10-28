@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import type { Spend } from '../../api/adapters/spends.adapter';
 import {
   deleteMonth,
   deductMonth,
+  getMonths,
   updateMonth,
 } from '../../api/adapters/months.adapter';
 import type { MonthListItem } from '../../api/adapters/months.adapter';
@@ -61,14 +62,6 @@ const parseAmount = (value: string): number | null => {
   return Number.isFinite(amount) ? amount : null;
 };
 
-const getSpendSnapshot = (spends: Spend[]): string =>
-  spends
-    .map((spend) =>
-      `${spend.id}:${spend.title}:${spend.amount}:${spend.isCompleted}:${spend.hasSubpage}`,
-    )
-    .sort()
-    .join('|');
-
 export default function MonthDetailScreen({
   navigation,
   route,
@@ -88,7 +81,6 @@ export default function MonthDetailScreen({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeducting, setIsDeducting] = useState(false);
   const [isDeductModalVisible, setIsDeductModalVisible] = useState(false);
-  const [spendsNeedDeduction, setSpendsNeedDeduction] = useState(false);
   const [isSubspendWarningVisible, setIsSubspendWarningVisible] = useState(false);
   const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
   const [monthTitle, setMonthTitle] = useState(month.title);
@@ -97,11 +89,15 @@ export default function MonthDetailScreen({
   const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   const [updatingSpendIds, setUpdatingSpendIds] = useState<number[]>([]);
-  const spendSnapshot = useRef<string | null>(null);
+  const hasLoadedMonthData = useRef(false);
   const hasMonthChanges =
     monthTitle.trim() !== month.title ||
     Number(monthNumber) !== month.month ||
     Number(monthYear) !== month.year;
+  const sortedSpends = useMemo(
+    () => [...spends].sort((a, b) => Number(a.isCompleted) - Number(b.isCompleted)),
+    [spends],
+  );
 
   useEffect(() => {
     if (!isSubspendWarningVisible) return undefined;
@@ -109,35 +105,50 @@ export default function MonthDetailScreen({
     return () => clearTimeout(timeout);
   }, [isSubspendWarningVisible]);
 
-  const loadSpends = useCallback(async (showLoading: boolean): Promise<void> => {
+  const loadMonthData = useCallback(async (showLoading: boolean): Promise<void> => {
     if (showLoading) setIsLoading(true);
     try {
-      const nextSpends = await getSpends(month.id);
-      const nextSnapshot = getSpendSnapshot(nextSpends);
-      if (spendSnapshot.current !== null && spendSnapshot.current !== nextSnapshot) {
-        setSpendsNeedDeduction(true);
+      const [spendsResult, monthsResult] = await Promise.allSettled([
+        getSpends(month.id),
+        getMonths(),
+      ]);
+      if (spendsResult.status === 'fulfilled') {
+        setSpends(spendsResult.value);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
-      spendSnapshot.current = nextSnapshot;
-      setSpends(nextSpends);
-      setLoadError(false);
-    } catch (error) {
-      setLoadError(true);
-      showErrorToast(getApiErrorMessage(error, 'Unable to load spends. Please try again.'));
+      if (monthsResult.status === 'fulfilled') {
+        const updatedMonth = monthsResult.value.find((item) => item.id === month.id);
+        if (updatedMonth) setMonth(updatedMonth);
+      }
+      const refreshError =
+        spendsResult.status === 'rejected'
+          ? spendsResult.reason
+          : monthsResult.status === 'rejected'
+            ? monthsResult.reason
+            : null;
+      if (refreshError !== null) {
+        showErrorToast(
+          getApiErrorMessage(refreshError, 'Unable to refresh month data. Please try again.'),
+        );
+      }
     } finally {
+      hasLoadedMonthData.current = true;
       if (showLoading) setIsLoading(false);
     }
   }, [month.id]);
 
   useFocusEffect(
     useCallback(() => {
-      void loadSpends(true);
-    }, [loadSpends]),
+      void loadMonthData(!hasLoadedMonthData.current);
+    }, [loadMonthData]),
   );
 
   const refreshSpends = async (): Promise<void> => {
     setIsRefreshing(true);
     try {
-      await loadSpends(false);
+      await loadMonthData(false);
     } finally {
       setIsRefreshing(false);
     }
@@ -167,6 +178,16 @@ export default function MonthDetailScreen({
     if (!selectedSpend) return;
     const trimmedTitle = title.trim();
     const parsedAmount = parseAmount(amount);
+    if (
+      trimmedTitle === selectedSpend.title.trim() &&
+      parsedAmount !== null &&
+      parsedAmount === Number(selectedSpend.amount) &&
+      isCompleted === selectedSpend.isCompleted
+    ) {
+      setIsEditModalVisible(false);
+      showSuccessToast('Nothing to Save');
+      return;
+    }
     if (!trimmedTitle) {
       showErrorToast('Enter a title for this spend.');
       return;
@@ -187,9 +208,11 @@ export default function MonthDetailScreen({
         item.id === updatedSpend.id ? updatedSpend : item,
       );
       setSpends(nextSpends);
-      spendSnapshot.current = getSpendSnapshot(nextSpends);
-      setSpendsNeedDeduction(true);
       setIsEditModalVisible(false);
+      await loadMonthData(false);
+      if (!selectedSpend.isCompleted && updatedSpend.isCompleted) {
+        setIsDeductModalVisible(true);
+      }
       showSuccessToast('Spend updated.');
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to update this spend.'));
@@ -205,9 +228,8 @@ export default function MonthDetailScreen({
       await deleteSpend(selectedSpend.id);
       const nextSpends = spends.filter((item) => item.id !== selectedSpend.id);
       setSpends(nextSpends);
-      spendSnapshot.current = getSpendSnapshot(nextSpends);
-      setSpendsNeedDeduction(true);
       setIsEditModalVisible(false);
+      await loadMonthData(false);
       showSuccessToast('Spend deleted.');
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to delete this spend.'));
@@ -228,8 +250,7 @@ export default function MonthDetailScreen({
     setIsDeducting(true);
     try {
       await deductMonth(month.id, source);
-      spendSnapshot.current = getSpendSnapshot(spends);
-      setSpendsNeedDeduction(false);
+      await loadMonthData(false);
       showSuccessToast(`Month deducted from ${source}.`);
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to deduct this month.'));
@@ -246,6 +267,12 @@ export default function MonthDetailScreen({
   };
 
   const saveMonth = async (): Promise<void> => {
+    if (!hasMonthChanges) {
+      setIsMonthModalVisible(false);
+      showSuccessToast('Nothing to Save');
+      return;
+    }
+
     const trimmedTitle = monthTitle.trim();
     const numericMonth = Number(monthNumber);
     const numericYear = Number(monthYear);
@@ -322,8 +349,10 @@ export default function MonthDetailScreen({
         item.id === spend.id ? updatedSpend : item,
       );
       setSpends(nextSpends);
-      spendSnapshot.current = getSpendSnapshot(nextSpends);
-      setSpendsNeedDeduction(true);
+      await loadMonthData(false);
+      if (!spend.isCompleted && updatedSpend.isCompleted) {
+        setIsDeductModalVisible(true);
+      }
     } catch (error) {
       showErrorToast(getApiErrorMessage(error, 'Unable to update spend status.'));
     } finally {
@@ -394,12 +423,13 @@ export default function MonthDetailScreen({
           style={({ pressed }) => [styles.headerEditButton, pressed && styles.pressed]}
         >
           <Ionicons name="pencil" size={ms(20)} color={Colors.brand.plum} />
+          <View style={styles.pencilUnderline} />
         </Pressable>
       </View>
 
       {/* Spends */}
       <FlatList
-        data={isLoading ? [] : spends}
+        data={isLoading ? [] : sortedSpends}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderSpend}
         contentContainerStyle={styles.listContent}
@@ -419,25 +449,6 @@ export default function MonthDetailScreen({
               <SummaryItem label="Spent" value={month.spent} />
               <SummaryItem label="To spend" value={month.toSpend} />
             </View>
-            {spendsNeedDeduction && (
-              <View accessibilityRole="alert" style={styles.deductionWarning}>
-                <Ionicons
-                  name="warning-outline"
-                  size={ms(15)}
-                  color={Colors.brand.orchid}
-                />
-                <Text style={styles.deductionWarningText}>
-                  Spend changed. Deduct again to update your money.
-                </Text>
-              </View>
-            )}
-            <LoadingButton
-              isLoading={isDeducting}
-              onPress={() => setIsDeductModalVisible(true)}
-              style={styles.deductButton}
-            >
-              <Text style={styles.deductButtonText}>Deduct</Text>
-            </LoadingButton>
           </View>
         }
         ListEmptyComponent={
@@ -575,13 +586,10 @@ export default function MonthDetailScreen({
               </View>
             </View>
             <LoadingButton
-              disabled={!hasMonthChanges || isUpdatingMonth || isDeletingMonth}
+              disabled={isUpdatingMonth || isDeletingMonth}
               isLoading={isUpdatingMonth}
               onPress={saveMonth}
-              style={[
-                styles.saveButton,
-                !hasMonthChanges && styles.inactiveSaveButton,
-              ]}
+              style={styles.saveButton}
             >
               <Text style={styles.saveButtonText}>Save changes</Text>
             </LoadingButton>
@@ -657,7 +665,29 @@ export default function MonthDetailScreen({
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Update spend</Text>
+            <View style={styles.monthModalHeader}>
+              <Text style={styles.modalTitle}>Update spend</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete spend"
+                disabled={isDeleting || isSaving}
+                onPress={confirmDeleteSpend}
+                style={({ pressed }) => [
+                  styles.deleteMonthButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color={Colors.status.error} />
+                ) : (
+                  <Ionicons
+                    name="trash-outline"
+                    size={ms(22)}
+                    color={Colors.status.error}
+                  />
+                )}
+              </Pressable>
+            </View>
             {isSpendLoading ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator color={Colors.brand.plum} />
@@ -695,15 +725,9 @@ export default function MonthDetailScreen({
                     thumbColor={Colors.neutral[10]}
                   />
                 </View>
-                <LoadingButton
-                  isLoading={isSaving}
-                  onPress={saveSpend}
-                  style={styles.saveButton}
-                >
-                  <Text style={styles.saveButtonText}>Save changes</Text>
-                </LoadingButton>
                 <Pressable
                   accessibilityRole="button"
+                  disabled={isSaving || isDeleting}
                   onPress={() => {
                     if (!selectedSpend) return;
                     setIsEditModalVisible(false);
@@ -714,6 +738,7 @@ export default function MonthDetailScreen({
                   }}
                   style={({ pressed }) => [
                     styles.modalAction,
+                    (isSaving || isDeleting) && styles.disabledControl,
                     pressed && styles.pressed,
                   ]}
                 >
@@ -721,11 +746,12 @@ export default function MonthDetailScreen({
                   <Text style={styles.modalActionText}>Add Subspends</Text>
                 </Pressable>
                 <LoadingButton
-                  isLoading={isDeleting}
-                  onPress={confirmDeleteSpend}
-                  style={styles.deleteButton}
+                  disabled={isDeleting}
+                  isLoading={isSaving}
+                  onPress={saveSpend}
+                  style={styles.saveButton}
                 >
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={styles.saveButtonText}>Save</Text>
                 </LoadingButton>
               </>
             )}
@@ -787,6 +813,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
+  pencilUnderline: {
+    position: 'absolute',
+    bottom: vs(7),
+    width: ms(16),
+    height: 1,
+    backgroundColor: Colors.brand.plum,
+  },
   listContent: {
     flexGrow: 1,
     paddingTop: vs(20),
@@ -818,39 +851,16 @@ const styles = StyleSheet.create({
     color: Colors.brand.deepPlum,
     marginTop: vs(4),
   },
-  deductButton: {
-    minHeight: vs(44),
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(16),
-    borderRadius: ms(12),
-    backgroundColor: Colors.brand.plum,
-  },
-  deductButtonText: {
-    ...TextStyles.SemiBold14,
-    color: Colors.neutral[10],
-  },
-  deductionWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(5),
-    marginBottom: vs(12),
-  },
-  deductionWarningText: {
-    ...TextStyles.Regular12,
-    flex: 1,
-    color: Colors.brand.orchid,
-  },
   listSeparator: {
     height: vs(10),
   },
   spendCard: {
-    minHeight: vs(70),
+    minHeight: vs(62),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s(12),
-    paddingHorizontal: s(14),
-    paddingVertical: vs(12),
+    gap: s(10),
+    paddingHorizontal: s(12),
+    paddingVertical: vs(9),
     borderWidth: 1,
     borderColor: Colors.neutral[30],
     borderRadius: ms(14),
@@ -997,9 +1007,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: vs(8),
   },
-  inactiveSaveButton: {
-    opacity: 0.5,
-  },
   sourceDescription: {
     ...TextStyles.Regular14,
     color: Colors.neutral[70],
@@ -1081,19 +1088,6 @@ const styles = StyleSheet.create({
   modalActionText: {
     ...TextStyles.SemiBold14,
     color: Colors.brand.plum,
-  },
-  deleteButton: {
-    minHeight: vs(44),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.status.error,
-    borderRadius: ms(12),
-    backgroundColor: Colors.status.error,
-  },
-  deleteButtonText: {
-    ...TextStyles.SemiBold14,
-    color: Colors.neutral[10],
   },
   pressed: {
     opacity: 0.72,
