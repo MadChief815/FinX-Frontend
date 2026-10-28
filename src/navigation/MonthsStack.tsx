@@ -41,7 +41,7 @@ export default function MonthsStack(): React.JSX.Element {
         component={MonthCreateScreen}
         options={{
           presentation: 'formSheet',
-          sheetAllowedDetents: [0.85],
+          sheetAllowedDetents: [0.60],
           sheetGrabberVisible: false,
           sheetCornerRadius: 20,
         }}

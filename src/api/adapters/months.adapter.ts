@@ -1,4 +1,5 @@
 import {
+  createMonth as createMonthService,
   deleteMonth as deleteMonthService,
   deductMonth as deductMonthService,
   getMonths as getMonthsService,
@@ -32,6 +33,12 @@ function toMonthListItem(month: MonthResponse): MonthListItem {
     spent: toAmount(month.totals?.spent),
     toSpend: toAmount(month.totals?.to_spend),
   };
+}
+
+export async function createMonth(
+  payload: MonthUpdatePayload,
+): Promise<MonthListItem> {
+  return toMonthListItem(await createMonthService(payload));
 }
 
 export async function getMonths(): Promise<MonthListItem[]> {

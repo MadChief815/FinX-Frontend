@@ -453,7 +453,7 @@ export default function MonthDetailScreen({
         <Ionicons
           name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
           size={ms(24)}
-          color={item.isCompleted ? Colors.brand.teal : Colors.neutral[50]}
+          color={item.isCompleted ? Colors.brand.orchid : Colors.brand.orchid}
         />
       </Pressable>
       <Pressable

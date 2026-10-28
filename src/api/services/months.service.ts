@@ -28,6 +28,13 @@ export interface MonthUpdatePayload {
   year: number;
 }
 
+export async function createMonth(
+  payload: MonthUpdatePayload,
+): Promise<MonthResponse> {
+  const response = await api.post<MonthResponse>('finance/months/', payload);
+  return response.data;
+}
+
 export async function getMonths(): Promise<MonthsResponse> {
   const response = await api.get<MonthsResponse>('finance/months/');
   return response.data;
