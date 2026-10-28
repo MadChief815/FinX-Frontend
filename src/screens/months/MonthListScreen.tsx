@@ -174,8 +174,6 @@ export default function MonthListScreen({
               ) : (
                 <EmptySection
                   message="No active months available"
-                  actionLabel="Create a month"
-                  onAction={() => navigation.navigate('MonthCreate')}
                 />
               )}
             </View>

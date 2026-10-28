@@ -26,6 +26,7 @@ export interface MonthUpdatePayload {
   title: string;
   month: number;
   year: number;
+  is_completed?: boolean;
 }
 
 export async function createMonth(

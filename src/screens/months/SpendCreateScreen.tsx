@@ -173,7 +173,7 @@ export default function SpendCreateScreen({
                 accessibilityLabel="Completed"
                 value={isCompleted}
                 onValueChange={setIsCompleted}
-                trackColor={{ false: Colors.neutral[40], true: Colors.brand.teal }}
+                trackColor={{ false: Colors.neutral[40], true: Colors.brand.orchid }}
                 thumbColor={Colors.neutral[10]}
               />
             </View>

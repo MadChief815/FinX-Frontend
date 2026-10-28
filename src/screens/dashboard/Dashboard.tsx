@@ -644,7 +644,7 @@ export default function DashboardScreen(): React.JSX.Element {
                         <Ionicons
                           name="checkmark"
                           size={ms(15)}
-                          color={Colors.neutral[10]}
+                          color={Colors.brand.orchid}
                           accessibilityElementsHidden
                           importantForAccessibility="no"
                         />
@@ -726,7 +726,7 @@ export default function DashboardScreen(): React.JSX.Element {
                       <Ionicons
                         name="checkmark-circle"
                         size={ms(20)}
-                        color={Colors.neutral[10]}
+                        color={Colors.brand.orchid}
                         accessibilityElementsHidden
                         importantForAccessibility="no"
                       />

@@ -102,13 +102,15 @@ export default function MonthDetailScreen({
   const [monthTitle, setMonthTitle] = useState(month.title);
   const [monthNumber, setMonthNumber] = useState(String(month.month));
   const [monthYear, setMonthYear] = useState(String(month.year));
+  const [isMonthCompleted, setIsMonthCompleted] = useState(month.isCompleted);
   const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   const hasLoadedMonthData = useRef(false);
   const hasMonthChanges =
     monthTitle.trim() !== month.title ||
     Number(monthNumber) !== month.month ||
-    Number(monthYear) !== month.year;
+    Number(monthYear) !== month.year ||
+    isMonthCompleted !== month.isCompleted;
   const sortedSpends = useMemo(
     () => [...spends].sort((a, b) => Number(a.isCompleted) - Number(b.isCompleted)),
     [spends],
@@ -352,6 +354,7 @@ export default function MonthDetailScreen({
     setMonthTitle(month.title);
     setMonthNumber(String(month.month));
     setMonthYear(String(month.year));
+    setIsMonthCompleted(month.isCompleted);
     setIsMonthModalVisible(true);
   };
 
@@ -384,12 +387,14 @@ export default function MonthDetailScreen({
         title: trimmedTitle,
         month: numericMonth,
         year: numericYear,
+        is_completed: isMonthCompleted,
       });
       setMonth((current) => ({
         ...current,
         title: trimmedTitle,
         month: numericMonth,
         year: numericYear,
+        isCompleted: isMonthCompleted,
       }));
       setIsMonthModalVisible(false);
       showSuccessToast('Month updated.');
@@ -667,6 +672,16 @@ export default function MonthDetailScreen({
                   />
                 </View>
               </View>
+              <View style={styles.completedRow}>
+                <Text style={styles.inputLabel}>Completed</Text>
+                <Switch
+                  accessibilityLabel="Month completed"
+                  value={isMonthCompleted}
+                  onValueChange={setIsMonthCompleted}
+                  trackColor={{ false: Colors.neutral[40], true: Colors.brand.orchid }}
+                  thumbColor={Colors.neutral[10]}
+                />
+              </View>
               <LoadingButton
                 disabled={isUpdatingMonth || isDeletingMonth}
                 isLoading={isUpdatingMonth}
@@ -805,7 +820,7 @@ export default function MonthDetailScreen({
                   accessibilityLabel="Completed"
                   value={isCompleted}
                   onValueChange={setIsCompleted}
-                  trackColor={{ false: Colors.neutral[40], true: Colors.brand.teal }}
+                  trackColor={{ false: Colors.neutral[40], true: Colors.brand.orchid }}
                   thumbColor={Colors.neutral[10]}
                 />
               </View>
@@ -1113,7 +1128,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(12),
     paddingTop: vs(8),
-    paddingBottom: vs(20)
+    // paddingBottom: vs(20)
   },
   monthDateField: {
     flex: 1,
