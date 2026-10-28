@@ -50,7 +50,10 @@ export default function MonthsStack(): React.JSX.Element {
         component={SpendCreateScreen}
         options={{ presentation: 'modal' }}
       />
-      <Stack.Screen name="SubPage" component={SubPageScreen} />
+      <Stack.Screen
+        name="SubPage"
+        component={SubPageScreen}
+      />
       <Stack.Screen
         name="SubSpendCreate"
         component={SubSpendCreateScreen}

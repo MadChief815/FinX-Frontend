@@ -1,4 +1,7 @@
-import { getMonths as getMonthsService } from '../services/months.service';
+import {
+  deductMonth as deductMonthService,
+  getMonths as getMonthsService,
+} from '../services/months.service';
 import type { MonthResponse } from '../services/months.service';
 
 export interface MonthListItem {
@@ -31,4 +34,11 @@ function toMonthListItem(month: MonthResponse): MonthListItem {
 export async function getMonths(): Promise<MonthListItem[]> {
   const response = await getMonthsService();
   return response.results.map(toMonthListItem);
+}
+
+export async function deductMonth(
+  monthId: number,
+  source: string,
+): Promise<void> {
+  await deductMonthService(monthId, source);
 }

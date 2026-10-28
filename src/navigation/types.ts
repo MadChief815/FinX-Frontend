@@ -1,3 +1,5 @@
+import type { MonthListItem } from '../api/adapters/months.adapter';
+
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -7,18 +9,18 @@ export type MonthsStackParamList = {
   MonthList: undefined;
   MonthCreate: undefined;
   MonthDetail: {
-    monthId?: string | number;
+    month: MonthListItem;
   };
   SpendCreate: {
-    monthId?: string | number;
+    monthId: number;
   };
   SubPage: {
-    monthId?: string | number;
-    subId?: string;
+    monthId?: number;
+    subId?: number;
   };
   SubSpendCreate: {
-    monthId?: string | number;
-    subId?: string;
+    monthId?: number;
+    subId?: number;
   };
 };
 

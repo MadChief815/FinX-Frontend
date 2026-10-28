@@ -26,3 +26,10 @@ export async function getMonths(): Promise<MonthsResponse> {
   const response = await api.get<MonthsResponse>('finance/months/');
   return response.data;
 }
+
+export async function deductMonth(
+  monthId: number,
+  source: string,
+): Promise<void> {
+  await api.post(`finance/months/${monthId}/deduct/`, { source });
+}

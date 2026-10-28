@@ -18,16 +18,13 @@ import type { MonthListItem } from '../../api/adapters/months.adapter';
 
 // Components
 import Header from '../../components/Header';
-import { LoadingButton } from '../../components/LoadingButton';
 import { Skeleton } from '../../components/Skeleton';
 
 // Utilities
 import { Colors } from '../../utils/Colors';
-import { getApiErrorMessage } from '../../utils/apiError';
 import { ms, s, vs } from '../../utils/Responsive';
 import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
-import { showErrorToast } from '../../utils/toast';
 
 type MonthListScreenProps = NativeStackScreenProps<
   MonthsStackParamList,
@@ -47,8 +44,7 @@ export default function MonthListScreen({
   const [months, setMonths] = useState<MonthListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const loadMonths = useCallback(async (showLoading: boolean): Promise<void> => {
     if (showLoading) {
@@ -56,14 +52,9 @@ export default function MonthListScreen({
     }
     try {
       setMonths(await getMonths());
-      setLoadError(null);
-    } catch (error) {
-      const message = getApiErrorMessage(
-        error,
-        'Unable to load months. Please try again.',
-      );
-      setLoadError(message);
-      showErrorToast(message);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -84,15 +75,6 @@ export default function MonthListScreen({
     }
   };
 
-  const retryMonths = async (): Promise<void> => {
-    setIsRetrying(true);
-    try {
-      await loadMonths(false);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
   const { activeMonths, completedMonths } = useMemo(() => {
     return {
       activeMonths: months.filter((month) => !month.isCompleted),
@@ -109,7 +91,7 @@ export default function MonthListScreen({
       accessibilityRole="button"
       accessibilityLabel={`${month.title} ${month.year}, ${formatCurrency(month.total)}`}
       accessibilityHint="Opens month details"
-      onPress={() => navigation.navigate('MonthDetail', { monthId: month.id })}
+      onPress={() => navigation.navigate('MonthDetail', { month })}
       style={({ pressed }) => [
         styles.monthItem,
         isCompleted && styles.completedMonthItem,
@@ -159,13 +141,14 @@ export default function MonthListScreen({
               ))}
             </View>
           </>
-        ) : loadError !== null && months.length === 0 ? (
+        ) : loadError && months.length === 0 ? (
           <View style={styles.fullEmptyState}>
-            <LoadError
-              message={loadError}
-              isLoading={isRetrying}
-              onRetry={() => void retryMonths()}
-            />
+            <View style={styles.emptySection}>
+              <MonthIcon name="calendar-outline" size={ms(40)} />
+              <Text accessibilityRole="alert" style={styles.emptyMessage}>
+                Unable to load months. Please pull down to refresh
+              </Text>
+            </View>
           </View>
         ) : months.length === 0 ? (
           <View style={styles.fullEmptyState}>
@@ -199,9 +182,9 @@ export default function MonthListScreen({
                 <EmptySection message="No completed months" />
               )}
             </View>
-            {loadError !== null && months.length > 0 && (
+            {loadError && months.length > 0 && (
               <Text accessibilityRole="alert" style={styles.errorMessage}>
-                {loadError}
+                Unable to load months. Please try again.
               </Text>
             )}
           </>
@@ -314,31 +297,6 @@ function CreateMonthAction({
   );
 }
 
-function LoadError({
-  message,
-  isLoading,
-  onRetry,
-}: {
-  message: string;
-  isLoading: boolean;
-  onRetry: () => void;
-}): React.JSX.Element {
-  return (
-    <View>
-      <Text accessibilityRole="alert" style={styles.errorMessage}>
-        {message}
-      </Text>
-      <LoadingButton
-        isLoading={isLoading}
-        onPress={onRetry}
-        style={styles.retryButton}
-      >
-        <Text style={styles.retryText}>Try again</Text>
-      </LoadingButton>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
@@ -348,6 +306,10 @@ const styles = StyleSheet.create({
   fullEmptyState: {
     flex: 1,
     justifyContent: 'center',
+  },
+  loadErrorState: {
+    alignItems: 'center',
+    paddingHorizontal: s(24),
   },
   createMonthButton: {
     minWidth: s(44),
@@ -394,7 +356,6 @@ const styles = StyleSheet.create({
   emptySection: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: vs(8),
     paddingVertical: vs(24),
   },
   emptyAction: {
@@ -413,7 +374,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...TextStyles.SemiBold18,
-    color: Colors.brand.deepPlum,
+    color: Colors.neutral[100],
     marginBottom: vs(2),
   },
   monthItem: {
@@ -437,18 +398,6 @@ const styles = StyleSheet.create({
   monthItemPressed: {
     backgroundColor: Colors.neutral[20],
   },
-  retryButton: {
-    alignSelf: 'flex-start',
-    marginTop: vs(12),
-    paddingHorizontal: s(14),
-    paddingVertical: vs(8),
-    borderRadius: ms(10),
-    backgroundColor: Colors.brand.plum,
-  },
-  retryText: {
-    ...TextStyles.SemiBold14,
-    color: Colors.neutral[10],
-  },
   monthName: {
     ...TextStyles.SemiBold16,
     flex: 1,
@@ -459,7 +408,7 @@ const styles = StyleSheet.create({
     color: Colors.brand.plum,
   },
   emptyMessage: {
-    ...TextStyles.Regular14,
+    ...TextStyles.Medium14,
     color: Colors.neutral[100],
     textAlign: 'center',
   },
@@ -467,5 +416,10 @@ const styles = StyleSheet.create({
     ...TextStyles.Regular14,
     color: Colors.status.error,
     marginTop: vs(16),
+  },
+  loadErrorMessage: {
+    ...TextStyles.SemiBold14,
+    color: Colors.brand.orchid,
+    textAlign: 'center',
   },
 });

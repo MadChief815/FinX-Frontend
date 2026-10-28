@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   savingsTitle: {
     ...TextStyles.SemiBold12,
-    color: Colors.neutral[30],
+    color: Colors.neutral[20],
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
