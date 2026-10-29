@@ -27,6 +27,7 @@ import {
   updateSpend,
 } from '../../api/adapters/spends.adapter';
 import type { Spend } from '../../api/adapters/spends.adapter';
+import { createSubPage } from '../../api/adapters/subpages.adapter';
 import {
   deleteMonth,
   getMonths,
@@ -86,6 +87,9 @@ export default function MonthDetailScreen({
   const [selectedSpend, setSelectedSpend] = useState<Spend | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isSpendLoading, setIsSpendLoading] = useState(false);
+  const [isSubPageCreateVisible, setIsSubPageCreateVisible] = useState(false);
+  const [subPageTitle, setSubPageTitle] = useState('');
+  const [isCreatingSubPage, setIsCreatingSubPage] = useState(false);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
@@ -420,6 +424,40 @@ export default function MonthDetailScreen({
     }
   };
 
+  const submitSubPage = async (): Promise<void> => {
+    if (!selectedSpend || selectedSpend.hasSubpage) return;
+    const trimmedTitle = subPageTitle.trim();
+    if (!trimmedTitle) {
+      showErrorToast('Enter a title for this subpage.');
+      return;
+    }
+
+    setIsCreatingSubPage(true);
+    try {
+      await createSubPage({
+        spend: selectedSpend.id,
+        title: trimmedTitle,
+      });
+      setSelectedSpend((current) =>
+        current ? { ...current, hasSubpage: true } : current,
+      );
+      setSpends((current) =>
+        current.map((spend) =>
+          spend.id === selectedSpend.id ? { ...spend, hasSubpage: true } : spend,
+        ),
+      );
+      setSubPageTitle('');
+      setIsSubPageCreateVisible(false);
+      showSuccessToast('Subpage created.');
+    } catch (error) {
+      showErrorToast(
+        getApiErrorMessage(error, 'Unable to create this subpage. Please try again.'),
+      );
+    } finally {
+      setIsCreatingSubPage(false);
+    }
+  };
+
   const confirmDeleteMonth = (): void => {
     openDeleteConfirmation('month');
   };
@@ -749,9 +787,10 @@ export default function MonthDetailScreen({
       <BottomSheetModal
         visible={isEditModalVisible || deleteConfirmation === 'spend'}
         onClose={() => {
-          if (isDeleting) return;
+          if (isDeleting || isCreatingSubPage) return;
           setIsEditModalVisible(false);
           setDeleteConfirmation(null);
+          setIsSubPageCreateVisible(false);
         }}
         size="form"
       >
@@ -764,6 +803,52 @@ export default function MonthDetailScreen({
               onCancel={() => setDeleteConfirmation(null)}
               onDelete={() => void removeSpend()}
             />
+          ) : isSubPageCreateVisible ? (
+            <>
+              <View style={styles.monthModalHeader}>
+                <Text style={styles.modalTitle}>Create Sub Page</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel creating subpage"
+                  disabled={isCreatingSubPage}
+                  onPress={() => {
+                    setSubPageTitle('');
+                    setIsSubPageCreateVisible(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.deleteMonthButton,
+                    pressed && styles.pressed,
+                    isCreatingSubPage && styles.disabledControl,
+                  ]}
+                >
+                  <Ionicons
+                    name="close"
+                    size={ms(22)}
+                    color={Colors.neutral[70]}
+                  />
+                </Pressable>
+              </View>
+              <Text style={styles.inputLabel}>Title</Text>
+              <TextInput
+                accessibilityLabel="Subpage title"
+                autoCapitalize="sentences"
+                autoCorrect
+                maxLength={100}
+                onChangeText={setSubPageTitle}
+                placeholder="Subpage title"
+                placeholderTextColor={Colors.neutral[60]}
+                returnKeyType="done"
+                style={[styles.input, {marginBottom: vs(28)}]}
+                value={subPageTitle}
+              />
+              <LoadingButton
+                isLoading={isCreatingSubPage}
+                onPress={submitSubPage}
+                style={styles.saveButton}
+              >
+                <Text style={styles.saveButtonText}>Create</Text>
+              </LoadingButton>
+            </>
           ) : isSpendLoading ? (
             <View style={styles.modalLoading}>
               <ActivityIndicator color={Colors.brand.plum} size={ms(36)} />
@@ -824,26 +909,24 @@ export default function MonthDetailScreen({
                   thumbColor={Colors.neutral[10]}
                 />
               </View>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isSaving || isDeleting}
-                onPress={() => {
-                  if (!selectedSpend) return;
-                  setIsEditModalVisible(false);
-                  navigation.navigate('SubSpendCreate', {
-                    monthId: month.id,
-                    subId: selectedSpend.id,
-                  });
-                }}
-                style={({ pressed }) => [
-                  styles.modalAction,
-                  (isSaving || isDeleting) && styles.disabledControl,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="add-circle-outline" size={ms(20)} color={Colors.brand.plum} />
-                <Text style={styles.modalActionText}>Add Subspends</Text>
-              </Pressable>
+              {selectedSpend && !selectedSpend.hasSubpage && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isSaving || isDeleting}
+                  onPress={() => {
+                    setSubPageTitle('');
+                    setIsSubPageCreateVisible(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.modalAction,
+                    (isSaving || isDeleting) && styles.disabledControl,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons name="add-circle-outline" size={ms(20)} color={Colors.brand.plum} />
+                  <Text style={styles.modalActionText}>Add Sub Page</Text>
+                </Pressable>
+              )}
               <LoadingButton
                 disabled={isDeleting}
                 isLoading={isSaving}

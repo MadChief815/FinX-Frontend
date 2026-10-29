@@ -19,9 +19,8 @@ export type MonthsStackParamList = {
     subId?: number;
   };
   SubSpendCreate: {
-    monthId?: number;
-    subId?: number;
-  };
+    subPageId?: number;
+  } | undefined;
 };
 
 export type DashboardStackParamList = {

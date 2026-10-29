@@ -1,4 +1,3 @@
-// navigation/MonthsStack.tsx
 import React from 'react';
 import {
   createNativeStackNavigator,
@@ -63,6 +62,7 @@ export default function MonthsStack(): React.JSX.Element {
       <Stack.Screen
         name="SubPage"
         component={SubPageScreen}
+        options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
         name="SubSpendCreate"
