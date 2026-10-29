@@ -6,8 +6,14 @@ import Toast, { BaseToast } from 'react-native-toast-message';
 import type { ToastConfig } from 'react-native-toast-message';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import RootNavigator from './src/navigation/RootNavigator';
+
+// Screens
 import SplashScreen from './src/screens/auth/SplashScreen';
+
+// Auth Store
 import { useAuthStore } from './src/store/authStore';
+
+// Components
 import { showErrorToast } from './src/utils/toast';
 import { Colors } from './src/utils/Colors';
 import { s } from './src/utils/Responsive';

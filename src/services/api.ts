@@ -38,6 +38,13 @@ function isAuthenticationRequest(url?: string): boolean {
   );
 }
 
+function isDefinitiveRefreshFailure(error: unknown): boolean {
+  return (
+    axios.isAxiosError(error) &&
+    [400, 401, 403].includes(error.response?.status ?? 0)
+  );
+}
+
 let refreshPromise: Promise<string> | null = null;
 
 api.interceptors.request.use((config) => {
@@ -73,6 +80,12 @@ api.interceptors.response.use(
     const currentAuthorization = authState.token
       ? `Bearer ${authState.token}`
       : null;
+
+    if (originalRequest._retry) {
+      await useAuthStore.getState().logout();
+      return Promise.reject(error);
+    }
+
     if (
       authState.isAuthenticated &&
       currentAuthorization &&
@@ -83,27 +96,31 @@ api.interceptors.response.use(
       return api(originalRequest);
     }
 
-    if (originalRequest._retry) {
-      await useAuthStore.getState().logout();
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
     const { refreshToken } = useAuthStore.getState();
     if (!refreshToken) {
       await useAuthStore.getState().logout();
       return Promise.reject(error);
     }
 
+    originalRequest._retry = true;
     if (!refreshPromise) {
       refreshPromise = api
-        .post<TokenRefreshResponse>('/api/v1/token/refresh/', {
+        .post<TokenRefreshResponse>('token/refresh/', {
           refresh: refreshToken,
         })
         .then(async ({ data }) => {
           if (typeof data.access !== 'string' || !data.access.trim()) {
             throw new Error('Token refresh response did not include a valid access token.');
           }
+
+          const currentAuthState = useAuthStore.getState();
+          if (currentAuthState.refreshToken !== refreshToken) {
+            if (currentAuthState.isAuthenticated && currentAuthState.token) {
+              return currentAuthState.token;
+            }
+            throw new Error('The authentication session changed during token refresh.');
+          }
+
           await useAuthStore.getState().updateTokens(
             data.access,
             data.refresh || refreshToken,
@@ -111,7 +128,9 @@ api.interceptors.response.use(
           return data.access;
         })
         .catch(async (refreshError: unknown) => {
-          await useAuthStore.getState().logout();
+          if (isDefinitiveRefreshFailure(refreshError)) {
+            await useAuthStore.getState().logout();
+          }
           throw refreshError;
         })
         .finally(() => {
