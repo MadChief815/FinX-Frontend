@@ -616,9 +616,7 @@ export default function DashboardScreen(): React.JSX.Element {
                     index < 2 && styles.breakdownRowDivider,
                   ]}
                 >
-                  <Skeleton width={ms(22)} height={ms(22)} />
-                  <Skeleton width="42%" height={ms(18)} />
-                  <Skeleton width={ms(84)} height={ms(18)} />
+                  <Skeleton width="100%" height={ms(18)} />
                 </View>
               ))
               : breakdownItems.map((item, index) => {
