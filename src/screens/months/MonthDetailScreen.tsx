@@ -100,6 +100,8 @@ export default function MonthDetailScreen({
   const [pendingSpendChange, setPendingSpendChange] =
     useState<PendingSpendChange | null>(null);
   const [isSubspendWarningVisible, setIsSubspendWarningVisible] = useState(false);
+  const [subspendWarningType, setSubspendWarningType] =
+    useState<'pending' | 'already-created'>('pending');
   const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] =
     useState<'spend' | 'month' | null>(null);
@@ -448,7 +450,12 @@ export default function MonthDetailScreen({
       );
       setSubPageTitle('');
       setIsSubPageCreateVisible(false);
+      setIsEditModalVisible(false);
       showSuccessToast('Subpage created.');
+      navigation.navigate('SubPage', {
+        monthId: month.id,
+        subId: selectedSpend.id,
+      });
     } catch (error) {
       showErrorToast(
         getApiErrorMessage(error, 'Unable to create this subpage. Please try again.'),
@@ -464,6 +471,7 @@ export default function MonthDetailScreen({
 
   const toggleCompleted = (spend: Spend): void => {
     if (spend.hasSubpage) {
+      setSubspendWarningType('pending');
       setIsSubspendWarningVisible(true);
       return;
     }
@@ -501,8 +509,19 @@ export default function MonthDetailScreen({
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Edit ${item.title}, ${formatCurrency(Number(item.amount))}`}
-        onPress={() => void openSpendEditor(item)}
+        accessibilityLabel={item.hasSubpage
+          ? `Open subpage for ${item.title}`
+          : `Edit ${item.title}, ${formatCurrency(Number(item.amount))}`}
+        onPress={() => {
+          if (item.hasSubpage) {
+            navigation.navigate('SubPage', {
+              monthId: month.id,
+              subId: item.id,
+            });
+          } else {
+            void openSpendEditor(item);
+          }
+        }}
         style={({ pressed }) => [styles.spendDetails, pressed && styles.pressed]}
       >
         <Text numberOfLines={1} style={[styles.spendTitle, item.isCompleted && styles.completedText]}>
@@ -513,14 +532,11 @@ export default function MonthDetailScreen({
       {item.hasSubpage && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Open subspends for ${item.title}`}
-          onPress={() => navigation.navigate('SubPage', {
-            monthId: month.id,
-            subId: item.id,
-          })}
+          accessibilityLabel={`Edit ${item.title}, ${formatCurrency(Number(item.amount))}`}
+          onPress={() => void openSpendEditor(item)}
           style={styles.arrowButton}
         >
-          <Ionicons name="chevron-forward" size={ms(22)} color={Colors.neutral[70]} />
+          <Ionicons name="receipt-outline" size={ms(22)} color={Colors.brand.plum} />
         </Pressable>
       )}
     </View>
@@ -552,6 +568,7 @@ export default function MonthDetailScreen({
         keyExtractor={(item) => String(item.id)}
         renderItem={renderSpend}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
         refreshControl={
           <RefreshControl
@@ -620,9 +637,15 @@ export default function MonthDetailScreen({
             size={ms(28)}
             color={Colors.brand.orchid}
           />
-          <Text style={styles.warningTitle}>Subspends pending</Text>
+          <Text style={styles.warningTitle}>
+            {subspendWarningType === 'already-created'
+              ? 'Subpage already created'
+              : 'Subspends pending'}
+          </Text>
           <Text style={styles.warningMessage}>
-            This spend will be completed automatically when all subspends are completed.
+            {subspendWarningType === 'already-created'
+              ? 'A subpage has already been created for this spend.'
+              : 'This spend will be completed automatically when all subspends are completed.'}
           </Text>
         </View>
       </BottomSheetModal>
@@ -899,21 +922,28 @@ export default function MonthDetailScreen({
                 onChangeText={(value) => setAmount(sanitizeNumericInput(value, 2))}
                 style={styles.input}
               />
-              <View style={styles.completedRow}>
-                <Text style={styles.inputLabel}>Completed</Text>
-                <Switch
-                  accessibilityLabel="Completed"
-                  value={isCompleted}
-                  onValueChange={setIsCompleted}
-                  trackColor={{ false: Colors.neutral[40], true: Colors.brand.orchid }}
-                  thumbColor={Colors.neutral[10]}
-                />
-              </View>
               {selectedSpend && !selectedSpend.hasSubpage && (
+                <View style={styles.completedRow}>
+                  <Text style={styles.inputLabel}>Completed</Text>
+                  <Switch
+                    accessibilityLabel="Completed"
+                    value={isCompleted}
+                    onValueChange={setIsCompleted}
+                    trackColor={{ false: Colors.neutral[40], true: Colors.brand.orchid }}
+                    thumbColor={Colors.neutral[10]}
+                  />
+                </View>
+              )}
+              {selectedSpend && (
                 <Pressable
                   accessibilityRole="button"
                   disabled={isSaving || isDeleting}
                   onPress={() => {
+                    if (selectedSpend.hasSubpage) {
+                      setSubspendWarningType('already-created');
+                      setIsSubspendWarningVisible(true);
+                      return;
+                    }
                     setSubPageTitle('');
                     setIsSubPageCreateVisible(true);
                   }}

@@ -50,7 +50,7 @@ export async function addSpend(payload: SpendPayload): Promise<Spend> {
 
 export async function updateSpend(
   spendId: number,
-  payload: SpendUpdatePayload,
+  payload: Partial<SpendUpdatePayload>,
 ): Promise<Spend> {
   return toSpend(await updateSpendService(spendId, payload));
 }

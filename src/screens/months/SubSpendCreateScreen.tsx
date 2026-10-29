@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Switch,
   Text,
@@ -11,7 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MonthsScreenProps } from '../../navigation/MonthsStack';
 
-import { createSubSpend } from '../../api/adapters/subpages.adapter';
+// Components
+import { BottomSheetModal } from '../../components/BottomSheetModal';
 import Header from '../../components/Header';
 import { LoadingButton } from '../../components/LoadingButton';
 import { Colors } from '../../utils/Colors';
@@ -21,6 +24,11 @@ import { screenStyles } from '../../utils/screenStyles';
 import { TextStyles } from '../../utils/TextStyles';
 import { sanitizeNumericInput } from '../../utils/numericInput';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
+
+// API Services
+import { createSubSpend } from '../../api/adapters/subpages.adapter';
+import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 type SubSpendCreateScreenProps = MonthsScreenProps<'SubSpendCreate'>;
 
@@ -36,6 +44,7 @@ export default function SubSpendCreateScreen({
   const [amount, setAmount] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSourceModalVisible, setIsSourceModalVisible] = useState(false);
 
   useEffect(() => {
     if (subPageId === undefined) {
@@ -58,17 +67,46 @@ export default function SubSpendCreateScreen({
       return;
     }
 
+    if (isCompleted) {
+      setIsSourceModalVisible(true);
+      return;
+    }
+
+    await submitCreatedSubSpend();
+  };
+
+  const submitCreatedSubSpend = async (source?: 'cash' | 'bank'): Promise<void> => {
+    if (subPageId === undefined) return;
+    const trimmedTitle = title.trim();
+    const spendAmount = Number(amount).toFixed(2);
     setIsSubmitting(true);
+    let balanceAdjusted = false;
     try {
+      if (source) {
+        await adjustDashboardBalance(source, -Number(spendAmount));
+        balanceAdjusted = true;
+      }
       await createSubSpend({
         sub_page: subPageId,
         title: trimmedTitle,
-        amount: Number(amount).toFixed(2),
+        amount: spendAmount,
         is_completed: isCompleted,
       });
+      setIsSourceModalVisible(false);
       showSuccessToast('Subspend created.');
       navigation.goBack();
     } catch (error) {
+      if (balanceAdjusted && source) {
+        try {
+          await adjustDashboardBalance(source, Number(spendAmount));
+        } catch (rollbackError) {
+          setIsSourceModalVisible(false);
+          showErrorToast(
+            `Subspend was not created and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
+          );
+          return;
+        }
+      }
       showErrorToast(
         getApiErrorMessage(error, 'Unable to create this subspend. Please try again.'),
       );
@@ -102,7 +140,7 @@ export default function SubSpendCreateScreen({
               autoCorrect
               maxLength={100}
               onChangeText={setTitle}
-              placeholder="e.g. Internet"
+              placeholder="Subspend name"
               placeholderTextColor={Colors.neutral[60]}
               returnKeyType="next"
               style={styles.input}
@@ -143,6 +181,63 @@ export default function SubSpendCreateScreen({
           </LoadingButton>
         </View>
       </KeyboardAvoidingView>
+
+      <BottomSheetModal
+        visible={isSourceModalVisible}
+        onClose={() => {
+          if (!isSubmitting) setIsSourceModalVisible(false);
+        }}
+        size="compact"
+      >
+        <View style={styles.sourceModal}>
+          <Text style={styles.sourceModalTitle}>Deduct subspend</Text>
+          <Text style={styles.sourceDescription}>
+            Choose where to deduct Rs. {Number(amount).toFixed(2)} from.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Deduct from bank"
+            disabled={isSubmitting}
+            onPress={() => void submitCreatedSubSpend('bank')}
+            style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={Colors.brand.plum} />
+            ) : (
+              <Ionicons name="business-outline" size={ms(22)} color={Colors.brand.plum} />
+            )}
+            <Text style={styles.sourceOptionText}>Bank</Text>
+            <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Deduct from cash"
+            disabled={isSubmitting}
+            onPress={() => void submitCreatedSubSpend('cash')}
+            style={({ pressed }) => [styles.sourceOption, pressed && styles.pressed]}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={Colors.brand.plum} />
+            ) : (
+              <Ionicons name="cash-outline" size={ms(22)} color={Colors.brand.plum} />
+            )}
+            <Text style={styles.sourceOptionText}>Cash</Text>
+            <Ionicons name="chevron-forward" size={ms(20)} color={Colors.neutral[60]} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={() => setIsSourceModalVisible(false)}
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed && styles.pressed,
+              isSubmitting && styles.disabledControl,
+            ]}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -194,5 +289,54 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...TextStyles.SemiBold16,
     color: Colors.neutral[10],
+  },
+  sourceModal: {
+    width: '100%',
+    padding: s(20),
+    backgroundColor: Colors.neutral[10],
+    gap: vs(10),
+  },
+  sourceModalTitle: {
+    ...TextStyles.SemiBold20,
+    color: Colors.brand.deepPlum,
+    marginBottom: vs(4),
+  },
+  sourceDescription: {
+    ...TextStyles.Regular14,
+    color: Colors.neutral[70],
+    marginBottom: vs(4),
+  },
+  sourceOption: {
+    minHeight: vs(48),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(12),
+    paddingHorizontal: s(12),
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+  },
+  sourceOptionText: {
+    ...TextStyles.Medium14,
+    color: Colors.brand.deepPlum,
+    flex: 1,
+  },
+  cancelButton: {
+    minHeight: vs(42),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+  },
+  cancelButtonText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[70],
+  },
+  pressed: {
+    opacity: 0.78,
+  },
+  disabledControl: {
+    opacity: 0.55,
   },
 });

@@ -50,7 +50,7 @@ export async function addSpend(payload: SpendPayload): Promise<SpendResponse> {
 
 export async function updateSpend(
   spendId: number,
-  payload: SpendUpdatePayload,
+  payload: Partial<SpendUpdatePayload>,
 ): Promise<SpendResponse> {
   const response = await api.patch<SpendResponse>(
     `finance/spends/${spendId}/`,
