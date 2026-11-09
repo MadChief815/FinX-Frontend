@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -68,6 +67,7 @@ export default function LoansCreateScreen({
     if (!trimmedName || !isValidAmount(amount)) return;
 
     setIsSubmitting(true);
+    setIsMethodModalVisible(false);
     let balanceAdjusted = false;
     try {
       await adjustDashboardBalance(
@@ -81,7 +81,6 @@ export default function LoansCreateScreen({
         type,
         status: 'active',
       });
-      setIsMethodModalVisible(false);
       showSuccessToast('Loan created.');
       navigation.goBack();
     } catch (error) {
@@ -212,9 +211,6 @@ export default function LoansCreateScreen({
               <Text style={styles.sourceOptionText}>
                 {source === 'bank' ? 'Bank' : 'Cash'}
               </Text>
-              {isSubmitting && (
-                <ActivityIndicator color={Colors.brand.plum} />
-              )}
             </Pressable>
           ))}
           <Pressable
