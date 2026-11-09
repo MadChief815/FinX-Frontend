@@ -37,6 +37,10 @@ export type LoansStackParamList = {
 
 export type IncomeStackParamList = {
   Income: undefined;
+  IncomeCreate: undefined;
+  IncomeDetail: {
+    incomeId: number;
+  };
 };
 
 export type AppTabsParamList = {

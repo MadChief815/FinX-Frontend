@@ -9,6 +9,8 @@ import type { IncomeStackParamList } from './types';
 
 // Screens
 import IncomeScreen from '../screens/income/IncomeScreen';
+import IncomeCreateScreen from '../screens/income/IncomeCreateScreen';
+import IncomeDetailScreen from '../screens/income/IncomeDetailScreen';
 
 const Stack = createNativeStackNavigator<IncomeStackParamList>();
 
@@ -25,6 +27,26 @@ export default function IncomeStack(): React.JSX.Element {
       }}
     >
       <Stack.Screen name="Income" component={IncomeScreen} />
+      <Stack.Screen
+        name="IncomeCreate"
+        component={IncomeCreateScreen}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.7],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
+      />
+      <Stack.Screen
+        name="IncomeDetail"
+        component={IncomeDetailScreen}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.63],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
+      />
     </Stack.Navigator>
   );
 }
