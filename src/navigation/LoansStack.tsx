@@ -36,7 +36,7 @@ export default function LoansStack(): React.JSX.Element {
         component={LoansCreateScreen}
         options={{
           presentation: 'formSheet',
-          sheetAllowedDetents: [0.78],
+          sheetAllowedDetents: [0.7],
           sheetGrabberVisible: false,
           sheetCornerRadius: 20,
         }}
@@ -44,7 +44,12 @@ export default function LoansStack(): React.JSX.Element {
       <Stack.Screen
         name="LoanDetail"
         component={LoanDetailScreen}
-        options={{ animation: 'slide_from_right' }}
+        options={{ 
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.63],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
       />
     </Stack.Navigator>
   );

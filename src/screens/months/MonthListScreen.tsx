@@ -18,8 +18,8 @@ import type { MonthListItem } from '../../api/adapters/months.adapter';
 
 // Components
 import Header from '../../components/Header';
+import { SummaryCard, SummaryItem } from '../../components/SummaryCard';
 import { Skeleton } from '../../components/Skeleton';
-import { SummaryCard } from '../../components/SummaryCard';
 
 // Icons
 import Ionicons from 'react-native-vector-icons/Ionicons'
@@ -138,24 +138,11 @@ export default function MonthListScreen({
         {/* Summary */}
         <SummaryCard>
           <View style={styles.summaryAmounts}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Active Months Total</Text>
-              {isLoading ? (
-                <Skeleton
-                  width="84%"
-                  height={ms(16)}
-                  style={styles.summarySkeleton}
-                />
-              ) : (
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={styles.summaryValue}
-                >
-                  {formatCurrency(activeMonthsTotal)}
-                </Text>
-              )}
-            </View>
+            <SummaryItem
+              label="Active Months Total"
+              value={formatCurrency(activeMonthsTotal)}
+              isLoading={isLoading}
+            />
           </View>
         </SummaryCard>
 
@@ -342,22 +329,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: s(8),
     marginBottom: vs(16),
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...TextStyles.Regular12,
-    color: Colors.neutral[60],
-  },
-  summaryValue: {
-    ...TextStyles.SemiBold14,
-    color: Colors.brand.deepPlum,
-    marginTop: vs(4),
-  },
-  summarySkeleton: {
-    marginTop: vs(4),
-    borderRadius: ms(6),
   },
   fullEmptyState: {
     flex: 1,

@@ -156,12 +156,12 @@ export default function LoanDetailScreen({
       setLoan((currentLoan) =>
         currentLoan
           ? {
-              ...currentLoan,
-              personName: payload.person_name,
-              amount: payload.amount,
-              type: payload.type,
-              status: payload.status,
-            }
+            ...currentLoan,
+            personName: payload.person_name,
+            amount: payload.amount,
+            type: payload.type,
+            status: payload.status,
+          }
           : currentLoan,
       );
       setIsEditModalVisible(false);
@@ -191,102 +191,102 @@ export default function LoanDetailScreen({
   };
 
   return (
-    <SafeAreaView style={screenStyles.container}>
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        <Header
-          title="Loan Details"
-          back
-          onBackPress={() => navigation.goBack()}
-          titleColor={Colors.brand.deepPlum}
-        />
-        {loan && !isLoading && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Edit loan"
-            onPress={openEditor}
-            style={({ pressed }) => [
-              styles.headerEditButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <MaterialDesignIcons
-              name="pencil"
-              size={ms(20)}
-              color={Colors.brand.plum}
-            />
-          </Pressable>
-        )}
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => void refreshLoan()}
-            tintColor={Colors.brand.plum}
-            colors={[Colors.brand.plum]}
+    <SafeAreaView
+      edges={['left', 'right', 'bottom']}
+      style={[screenStyles.container, styles.root]}
+    >
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.headerContainer}>
+          <Header
+            title="Loan Details"
+            back
+            onBackPress={() => navigation.goBack()}
+            titleColor={Colors.brand.deepPlum}
           />
-        }
-      >
-        {isLoading ? (
-          <LoanDetailsSkeleton />
-        ) : loan ? (
-          <>
-            {/* Loan Summary */}
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryContent}>
-                <Text style={styles.personName}>{loan.personName}</Text>
-                <Text style={styles.amount}>{formatCurrency(loan.amount)}</Text>
-                <View
-                  style={[
-                    styles.statusPill,
-                    loan.status === 'paid' && styles.paidStatus,
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {loan.status === 'paid' ? 'Completed' : 'Active'}
-                  </Text>
+          {loan && !isLoading && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit loan"
+              onPress={openEditor}
+              style={({ pressed }) => [
+                styles.headerEditButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <MaterialDesignIcons
+                name="pencil"
+                size={ms(20)}
+                color={Colors.brand.plum}
+              />
+            </Pressable>
+          )}
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => void refreshLoan()}
+              tintColor={Colors.brand.plum}
+              colors={[Colors.brand.plum]}
+            />
+          }
+        >
+          {isLoading ? (
+            <LoanDetailsSkeleton />
+          ) : loan ? (
+            <>
+              {/* Loan Summary */}
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryContent}>
+                  <Text style={styles.personName}>{loan.personName}</Text>
+                  <Text style={styles.amount}>{formatCurrency(loan.amount)}</Text>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      loan.status === 'paid' && styles.paidStatus,
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {loan.status === 'paid' ? 'Completed' : 'Active'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailsSection}>
+                  <DetailRow label="Type" value={loan.type === 'lent' ? 'Lent' : 'Borrowed'} />
+                  <DetailRow label="Created" value={formatDateTime(loan.createdAt)} />
+                  <DetailRow label="Last updated" value={formatDateTime(loan.updatedAt)} />
                 </View>
               </View>
-            </View>
 
-            {/* Loan Information */}
-            <View style={styles.detailsCard}>
-              <DetailRow label="Loan ID" value={String(loan.id)} />
-              <View style={styles.detailDivider} />
-              <DetailRow label="Type" value={loan.type === 'lent' ? 'Lent' : 'Borrowed'} />
-              <View style={styles.detailDivider} />
-              <DetailRow label="Created" value={formatDateTime(loan.createdAt)} />
-              <View style={styles.detailDivider} />
-              <DetailRow label="Last updated" value={formatDateTime(loan.updatedAt)} />
-            </View>
+              {loadError && (
+                <Text accessibilityRole="alert" style={styles.errorMessage}>
+                  Unable to refresh this loan. Pull down to try again.
+                </Text>
+              )}
 
-            {loadError && (
+            </>
+          ) : (
+            <View style={styles.loadErrorState}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={ms(38)}
+                color={Colors.status.error}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
               <Text accessibilityRole="alert" style={styles.errorMessage}>
-                Unable to refresh this loan. Pull down to try again.
+                {loadError
+                  ? 'Unable to load this loan. Pull down to try again.'
+                  : 'Loan details are unavailable.'}
               </Text>
-            )}
-
-          </>
-        ) : (
-          <View style={styles.loadErrorState}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={ms(38)}
-              color={Colors.status.error}
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-            />
-            <Text accessibilityRole="alert" style={styles.errorMessage}>
-              {loadError
-                ? 'Unable to load this loan. Pull down to try again.'
-                : 'Loan details are unavailable.'}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+            </View>
+          )}
+        </ScrollView>
+      </View>
 
       {/* Edit Loan Modal */}
       <BottomSheetModal
@@ -319,6 +319,13 @@ export default function LoanDetailScreen({
               <Text style={styles.deleteMessage}>
                 This loan will be permanently deleted.
               </Text>
+              <LoadingButton
+                isLoading={isDeleting}
+                onPress={removeLoan}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteButtonText}>Delete Loan</Text>
+              </LoadingButton>
               <Pressable
                 accessibilityRole="button"
                 disabled={isDeleting}
@@ -331,13 +338,6 @@ export default function LoanDetailScreen({
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
-              <LoadingButton
-                isLoading={isDeleting}
-                onPress={removeLoan}
-                style={styles.deleteButton}
-              >
-                <Text style={styles.deleteButtonText}>Delete Loan</Text>
-              </LoadingButton>
             </>
           ) : (
             <>
@@ -469,13 +469,7 @@ function LoanOption({
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
         {selected && (
-          <Ionicons
-            name="checkmark"
-            size={ms(14)}
-            color={Colors.neutral[10]}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          />
+          <View style={styles.radioDot} />
         )}
       </View>
       <Text style={styles.optionText}>{label}</Text>
@@ -491,23 +485,32 @@ function LoanDetailsSkeleton(): React.JSX.Element {
         <View style={styles.summaryContent}>
           <Skeleton width={ms(48)} height={ms(48)} style={styles.skeletonCircle} />
           <Skeleton width="48%" height={ms(20)} />
-          <Skeleton width="62%" height={ms(28)} style={styles.skeletonSpace} />
+          <Skeleton width="62%" height={ms(28)} />
           <Skeleton width={ms(74)} height={ms(24)} style={styles.skeletonPill} />
         </View>
-      </View>
-      <View style={styles.detailsCard}>
-        {[0, 1, 2, 3].map((index) => (
-          <View key={index} style={styles.detailRow}>
-            <Skeleton width="28%" height={ms(16)} />
-            <Skeleton width="54%" height={ms(16)} />
-          </View>
-        ))}
+        <View style={styles.detailsSection}>
+          {[0, 1, 2].map((index) => (
+            <View key={index} style={styles.detailRow}>
+              <Skeleton width="28%" height={ms(16)} />
+              <Skeleton width="54%" height={ms(16)} />
+            </View>
+          ))}
+        </View>
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    paddingHorizontal: 0,
+    paddingTop: vs(18),
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: s(20),
+    paddingBottom: vs(12),
+  },
   headerContainer: {
     position: 'relative',
   },
@@ -532,15 +535,13 @@ const styles = StyleSheet.create({
     marginBottom: vs(10),
   },
   summaryCard: {
-    padding: s(16),
+    paddingVertical: vs(24),
+    paddingHorizontal: s(16),
     marginBottom: vs(16),
-    borderRadius: ms(16),
-    borderWidth: 1,
-    borderColor: Colors.neutral[30],
-    backgroundColor: Colors.neutral[10],
   },
   summaryContent: {
     alignItems: 'center',
+    gap: vs(12),
   },
   summaryIcon: {
     width: ms(48),
@@ -559,31 +560,24 @@ const styles = StyleSheet.create({
   amount: {
     ...TextStyles.Bold24,
     color: Colors.brand.plum,
-    marginTop: vs(6),
   },
   statusPill: {
     minHeight: vs(28),
     justifyContent: 'center',
-    marginTop: vs(12),
     paddingHorizontal: s(12),
     borderRadius: ms(14),
-    backgroundColor: Colors.brand.plum,
+    backgroundColor: Colors.brand.orchid,
   },
   paidStatus: {
-    backgroundColor: Colors.brand.teal,
+    backgroundColor: Colors.brand.deepPlum,
   },
   statusText: {
     ...TextStyles.SemiBold12,
     color: Colors.neutral[10],
   },
-  detailsCard: {
-    gap: vs(14),
-    marginTop: vs(20),
-    padding: s(16),
-    borderWidth: 1,
-    borderColor: Colors.neutral[30],
-    borderRadius: ms(14),
-    backgroundColor: Colors.neutral[10],
+  detailsSection: {
+    gap: vs(32),
+    marginTop: vs(48),
   },
   detailRow: {
     flexDirection: 'row',
@@ -601,10 +595,6 @@ const styles = StyleSheet.create({
     flex: 1.5,
     color: Colors.neutral[90],
     textAlign: 'right',
-  },
-  detailDivider: {
-    height: 1,
-    backgroundColor: Colors.neutral[30],
   },
   loadErrorState: {
     flex: 1,
@@ -675,6 +665,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.brand.orchid,
     backgroundColor: Colors.brand.orchid,
   },
+  radioDot: {
+    width: ms(6),
+    height: ms(6),
+    borderRadius: ms(3),
+    backgroundColor: Colors.neutral[10],
+  },
   optionText: {
     ...TextStyles.Medium14,
     color: Colors.brand.deepPlum,
@@ -713,7 +709,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: ms(12),
-    backgroundColor: Colors.status.error,
+    backgroundColor: Colors.brand.plum,
   },
   deleteButtonText: {
     ...TextStyles.SemiBold14,
@@ -724,13 +720,8 @@ const styles = StyleSheet.create({
   },
   skeletonCircle: {
     borderRadius: ms(24),
-    marginBottom: vs(12),
-  },
-  skeletonSpace: {
-    marginTop: vs(6),
   },
   skeletonPill: {
-    marginTop: vs(12),
     borderRadius: ms(14),
   },
   pressed: {

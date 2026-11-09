@@ -19,7 +19,7 @@ import type { Loan } from '../../api/adapters/loans.adapter';
 // Components
 import Header from '../../components/Header';
 import { Skeleton } from '../../components/Skeleton';
-import { SummaryCard } from '../../components/SummaryCard';
+import { SummaryCard, SummaryItem } from '../../components/SummaryCard';
 
 // Icons
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -166,21 +166,21 @@ export default function LoansScreen({
         {/* Summary */}
         <SummaryCard>
           <View style={styles.overviewTotals}>
-            <OverviewTotal
+            <SummaryItem
               label="Lent"
-              amount={totals.lent}
+              value={formatCurrency(totals.lent)}
               isLoading={isLoading}
             />
             <View style={styles.overviewDivider} />
-            <OverviewTotal
+            <SummaryItem
               label="Borrowed"
-              amount={totals.borrowed}
+              value={formatCurrency(totals.borrowed)}
               isLoading={isLoading}
             />
             <View style={styles.overviewDivider} />
-            <OverviewTotal
+            <SummaryItem
               label="Completed"
-              amount={totals.completed}
+              value={formatCurrency(totals.completed)}
               isLoading={isLoading}
             />
           </View>
@@ -194,15 +194,15 @@ export default function LoansScreen({
 
         {isLoading ? (
           <>
-            <LoanSectionSkeleton title="Active Lent" />
-            <LoanSectionSkeleton title="Active Borrowed" />
+            <LoanSectionSkeleton title="Lent" />
+            <LoanSectionSkeleton title="Borrowed" />
             <LoanSectionSkeleton title="Completed" completed />
           </>
         ) : (
           <>
-            {renderSection('Active Lent', lentLoans, 'No active lent loans')}
+            {renderSection('Lent', lentLoans, 'No active lent loans')}
             {renderSection(
-              'Active Borrowed',
+              'Borrowed',
               borrowedLoans,
               'No active borrowed loans',
               true,
@@ -234,29 +234,6 @@ export default function LoansScreen({
         />
       </Pressable>
     </SafeAreaView>
-  );
-}
-
-function OverviewTotal({
-  label,
-  amount,
-  isLoading,
-}: {
-  label: string;
-  amount: number;
-  isLoading: boolean;
-}): React.JSX.Element {
-  return (
-    <View style={styles.overviewTotal}>
-      <Text style={styles.overviewLabel}>{label}</Text>
-      {isLoading ? (
-        <Skeleton width="84%" height={ms(16)} style={styles.overviewSkeleton} />
-      ) : (
-        <Text numberOfLines={1} adjustsFontSizeToFit style={styles.overviewAmount}>
-          {formatCurrency(amount)}
-        </Text>
-      )}
-    </View>
   );
 }
 
@@ -302,33 +279,18 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingTop: vs(20),
-    paddingBottom: vs(100),
+    // paddingBottom: vs(100),
   },
   overviewTotals: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: vs(16),
   },
-  overviewTotal: {
-    flex: 1,
-    gap: vs(6),
-  },
   overviewDivider: {
     width: 1,
     height: vs(34),
     marginHorizontal: s(8),
     backgroundColor: Colors.neutral[30],
-  },
-  overviewLabel: {
-    ...TextStyles.Medium12,
-    color: Colors.neutral[70],
-  },
-  overviewAmount: {
-    ...TextStyles.SemiBold12,
-    color: Colors.brand.plum,
-  },
-  overviewSkeleton: {
-    borderRadius: ms(8),
   },
   section: {
     gap: vs(12),

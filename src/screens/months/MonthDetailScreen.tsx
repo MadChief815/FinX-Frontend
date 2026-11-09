@@ -41,7 +41,7 @@ import Header from '../../components/Header';
 import { BottomSheetModal } from '../../components/BottomSheetModal';
 import { LoadingButton } from '../../components/LoadingButton';
 import { Skeleton } from '../../components/Skeleton';
-import { SummaryCard } from '../../components/SummaryCard';
+import { SummaryCard, SummaryItem } from '../../components/SummaryCard';
 
 // Utilities
 import { Colors } from '../../utils/Colors';
@@ -583,9 +583,9 @@ export default function MonthDetailScreen({
           <View>
             <SummaryCard>
               <View style={styles.summaryAmounts}>
-                <SummaryItem label="Total" value={month.total} />
-                <SummaryItem label="Spent" value={month.spent} />
-                <SummaryItem label="To spend" value={month.toSpend} />
+                <SummaryItem label="Total" value={formatCurrency(month.total)} />
+                <SummaryItem label="Spent" value={formatCurrency(month.spent)} />
+                <SummaryItem label="To spend" value={formatCurrency(month.toSpend)} />
               </View>
             </SummaryCard>
             <Text style={styles.listheader}>Spends</Text>
@@ -1015,15 +1015,6 @@ function DeleteConfirmationContent({
   );
 }
 
-function SummaryItem({ label, value }: { label: string; value: number }): React.JSX.Element {
-  return (
-    <View style={styles.summaryItem}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text numberOfLines={1} style={styles.summaryValue}>{formatCurrency(value)}</Text>
-    </View>
-  );
-}
-
 function SpendSkeleton(): React.JSX.Element {
   return (
     <View style={styles.spendCard}>
@@ -1081,18 +1072,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: s(8),
     marginBottom: vs(16),
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...TextStyles.Regular12,
-    color: Colors.neutral[60],
-  },
-  summaryValue: {
-    ...TextStyles.SemiBold14,
-    color: Colors.brand.deepPlum,
-    marginTop: vs(4),
   },
   listSeparator: {
     height: vs(10),
