@@ -70,7 +70,24 @@ export default function IncomeCreateScreen({
   const [isReceived, setIsReceived] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMethodModalVisible, setIsMethodModalVisible] = useState(false);
+  const [balanceSource, setBalanceSource] = useState<'bank' | 'cash' | null>(null);
   const submissionLock = useRef(false);
+  const needsSourceSelection = useRef(false);
+
+  const handleAmountChange = (value: string): void => {
+    setAmount(value);
+    if (isReceived || balanceSource) {
+      setIsReceived(false);
+      setBalanceSource(null);
+      needsSourceSelection.current = true;
+    }
+  };
+
+  const handleAmountEndEditing = (): void => {
+    if (!needsSourceSelection.current) return;
+    needsSourceSelection.current = false;
+    setIsMethodModalVisible(true);
+  };
 
   const submitIncome = async (): Promise<void> => {
     if (!title.trim()) {
@@ -81,7 +98,11 @@ export default function IncomeCreateScreen({
       showErrorToast('Enter an amount greater than zero.');
       return;
     }
-    setIsMethodModalVisible(true);
+    if (!balanceSource) {
+      showErrorToast('Choose Bank or Cash by changing the Received setting.');
+      return;
+    }
+    void createIncomeWithSource(balanceSource);
   };
 
   const createIncomeWithSource = async (
@@ -98,7 +119,6 @@ export default function IncomeCreateScreen({
       await adjustDashboardBalance(source, balanceDelta);
       balanceAdjusted = true;
       await createIncome(toPayload(title, amountNumber, expectedDate, isReceived));
-      setIsMethodModalVisible(false);
       showSuccessToast('Income created.');
       navigation.goBack();
     } catch (error) {
@@ -106,7 +126,6 @@ export default function IncomeCreateScreen({
         try {
           await adjustDashboardBalance(source, -balanceDelta);
         } catch (rollbackError) {
-          setIsMethodModalVisible(false);
           showErrorToast(
             `Income was not created and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
           );
@@ -153,11 +172,22 @@ export default function IncomeCreateScreen({
               isReceived={isReceived}
               disabled={isSubmitting}
               onTitleChange={setTitle}
-              onAmountChange={setAmount}
+              onAmountChange={handleAmountChange}
+              onAmountEndEditing={handleAmountEndEditing}
               onDateChange={setExpectedDate}
-              onReceivedChange={setIsReceived}
+              onReceivedChange={(value) => {
+                if (value === isReceived) return;
+                setIsReceived(value);
+                setBalanceSource(null);
+                setIsMethodModalVisible(true);
+              }}
             />
           </ScrollView>
+          {balanceSource && (
+            <Text style={styles.methodNote}>
+              Method: {balanceSource === 'bank' ? 'Bank' : 'Cash'}
+            </Text>
+          )}
 
           {/* Actions */}
           <LoadingButton
@@ -185,11 +215,22 @@ export default function IncomeCreateScreen({
             Choose where to add Rs. {parseAmount(amount).toFixed(2)} to.
           </Text>
           {(['bank', 'cash'] as const).map((source) => (
-            <LoadingButton
+            <Pressable
               key={source}
-              isLoading={isSubmitting}
-              onPress={() => createIncomeWithSource(source)}
-              style={styles.sourceOption}
+              accessibilityRole="button"
+              accessibilityLabel={`Add income to ${source}`}
+              accessibilityState={{ selected: balanceSource === source }}
+              disabled={isSubmitting}
+              onPress={() => {
+                setBalanceSource(source);
+                setIsMethodModalVisible(false);
+              }}
+              style={({ pressed }) => [
+                styles.sourceOption,
+                balanceSource === source && styles.selectedSourceOption,
+                pressed && styles.pressed,
+                isSubmitting && styles.disabled,
+              ]}
             >
               <View style={styles.sourceContent}>
                 <Ionicons
@@ -201,7 +242,7 @@ export default function IncomeCreateScreen({
                   {source === 'bank' ? 'Bank' : 'Cash'}
                 </Text>
               </View>
-            </LoadingButton>
+            </Pressable>
           ))}
           <Pressable
             accessibilityRole="button"
@@ -225,9 +266,18 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  methodNote: {
+    ...TextStyles.Regular12,
+    color: Colors.neutral[60],
+    marginTop: vs(8),
+  },
   root: {
     paddingHorizontal: 0,
     paddingTop: vs(18),
+  },
+  selectedSourceOption: {
+    borderColor: Colors.brand.plum,
+    backgroundColor: Colors.neutral[20],
   },
   content: {
     flex: 1,

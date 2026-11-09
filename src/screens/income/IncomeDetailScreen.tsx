@@ -82,6 +82,7 @@ export default function IncomeDetailScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const hasLoadedIncome = useRef(false);
+  const saveLock = useRef(false);
 
   const loadIncome = useCallback(async (showLoading: boolean): Promise<void> => {
     if (showLoading) setIsLoading(true);
@@ -137,13 +138,14 @@ export default function IncomeDetailScreen({
   const getBalanceDelta = (nextAmount: number): number => {
     if (!income) return 0;
     if (income.isReceived && !isReceived) return -Number(income.amount);
+    if (!income.isReceived && isReceived) return nextAmount;
     return nextAmount - Number(income.amount);
   };
   const isUncheckingReceivedIncome = Boolean(income?.isReceived && !isReceived);
   const draftBalanceDelta = getBalanceDelta(parseAmount(amount));
 
   const saveIncome = async (): Promise<void> => {
-    if (!income) return;
+    if (!income || saveLock.current) return;
     if (!title.trim()) {
       showErrorToast('Enter an income title.');
       return;
@@ -166,16 +168,18 @@ export default function IncomeDetailScreen({
     }
 
     const balanceDelta = getBalanceDelta(nextAmount);
-    if (balanceDelta !== 0 && !balanceSource) {
-      setIsBalanceModalVisible(true);
+    const source = balanceSource;
+    if (balanceDelta !== 0 && !source) {
+      showErrorToast('Choose Bank or Cash before saving this income.');
       return;
     }
 
+    saveLock.current = true;
     setIsSaving(true);
     let balanceAdjusted = false;
     try {
-      if (balanceDelta !== 0 && balanceSource) {
-        await adjustDashboardBalance(balanceSource, balanceDelta);
+      if (balanceDelta !== 0 && source) {
+        await adjustDashboardBalance(source, balanceDelta);
         balanceAdjusted = true;
       }
       await updateIncome(income.id, nextPayload);
@@ -183,16 +187,16 @@ export default function IncomeDetailScreen({
         balanceDelta === 0
           ? 'Income updated.'
           : isUncheckingReceivedIncome
-            ? `Income updated and deducted from ${balanceSource}.`
+            ? `Income updated and deducted from ${source}.`
             : balanceDelta > 0
-              ? `Income updated and added to ${balanceSource}.`
+              ? `Income updated and added to ${source}.`
               : 'Income updated.',
       );
       navigation.goBack();
     } catch (error) {
-      if (balanceAdjusted && balanceSource) {
+      if (balanceAdjusted && source) {
         try {
-          await adjustDashboardBalance(balanceSource, -balanceDelta);
+          await adjustDashboardBalance(source, -balanceDelta);
         } catch (rollbackError) {
           showErrorToast(
             `Income was not updated and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
@@ -205,6 +209,7 @@ export default function IncomeDetailScreen({
         getApiErrorMessage(error, 'Unable to update this income. Please try again.'),
       );
     } finally {
+      saveLock.current = false;
       setIsSaving(false);
     }
   };
@@ -227,9 +232,27 @@ export default function IncomeDetailScreen({
     }
   };
 
-  const resetBalanceSource = <T,>(setValue: (value: T) => void, value: T): void => {
+  const handleReceivedChange = (nextIsReceived: boolean): void => {
+    if (nextIsReceived === isReceived) return;
+    setIsReceived(nextIsReceived);
     setBalanceSource(null);
-    setValue(value);
+    setIsBalanceModalVisible(true);
+  };
+
+  const handleAmountEndEditing = (value: string): void => {
+    if (!income || balanceSource) return;
+    const nextAmount = parseAmount(value);
+    if (nextAmount && getBalanceDelta(nextAmount) !== 0) {
+      setIsBalanceModalVisible(true);
+    }
+  };
+
+  const handleAmountChange = (value: string): void => {
+    setAmount(value);
+    if (isReceived) {
+      setIsReceived(false);
+      setBalanceSource(null);
+    }
   };
 
   const closeBalanceModal = (): void => {
@@ -411,10 +434,11 @@ export default function IncomeDetailScreen({
                 isReceived={isReceived}
                 disabled={isSaving || isDeleting}
                 receivedWillBeReversed={Boolean(income?.isReceived && !isReceived)}
-                onTitleChange={(value) => resetBalanceSource(setTitle, value)}
-                onAmountChange={(value) => resetBalanceSource(setAmount, value)}
-                onDateChange={(value) => resetBalanceSource(setExpectedDate, value)}
-                onReceivedChange={(value) => resetBalanceSource(setIsReceived, value)}
+                onTitleChange={setTitle}
+                onAmountChange={handleAmountChange}
+                onAmountEndEditing={handleAmountEndEditing}
+                onDateChange={setExpectedDate}
+                onReceivedChange={handleReceivedChange}
               />
               {balanceSource && (
                 <Text style={styles.sourceDescription}>
@@ -474,6 +498,8 @@ export default function IncomeDetailScreen({
               key={source}
               accessibilityRole="button"
               accessibilityLabel={`Select ${source}`}
+              accessibilityState={{ disabled: isSaving }}
+              disabled={isSaving}
               onPress={() => {
                 setBalanceSource(source);
                 setIsBalanceModalVisible(false);
@@ -566,14 +592,11 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginTop: vs(20),
     padding: s(16),
-    borderWidth: 1,
-    borderColor: Colors.neutral[30],
-    borderRadius: ms(16),
     backgroundColor: Colors.neutral[10],
   },
   summaryContent: {
     alignItems: 'center',
-    gap: vs(8),
+    gap: vs(14),
     paddingVertical: vs(8),
   },
   incomeTitle: {
@@ -586,23 +609,24 @@ const styles = StyleSheet.create({
     color: Colors.brand.plum,
   },
   statusPill: {
-    paddingHorizontal: s(10),
-    paddingVertical: vs(4),
-    borderRadius: ms(12),
-    backgroundColor: Colors.neutral[20],
+    minHeight: vs(28),
+    justifyContent: 'center',
+    paddingHorizontal: s(12),
+    borderRadius: ms(14),
+    backgroundColor: Colors.brand.orchid,
   },
   receivedPill: {
-    backgroundColor: Colors.neutral[20],
+    backgroundColor: Colors.brand.deepPlum,
   },
   statusText: {
     ...TextStyles.Medium12,
-    color: Colors.neutral[70],
+    color: Colors.neutral[10],
   },
   receivedText: {
-    color: Colors.brand.teal,
+    color: Colors.neutral[10],
   },
   detailsSection: {
-    gap: vs(14),
+    gap: vs(24),
     marginTop: vs(18),
     paddingTop: vs(16),
     borderTopWidth: 1,

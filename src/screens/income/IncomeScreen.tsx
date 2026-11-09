@@ -120,11 +120,6 @@ export default function IncomeScreen({
         <Text numberOfLines={1} style={styles.incomeTitle}>{income.title}</Text>
         <View style={styles.incomeMeta}>
           <Text style={styles.incomeDate}>{formatIncomeDate(income.expectedDate)}</Text>
-          <View style={styles.statusPill}>
-            <Text style={[styles.statusText, completed && styles.receivedText]}>
-              {completed ? 'Completed' : 'Expected'}
-            </Text>
-          </View>
         </View>
       </View>
       <Text numberOfLines={1} style={styles.incomeAmount}>
@@ -325,16 +320,6 @@ const styles = StyleSheet.create({
   incomeDate: {
     ...TextStyles.Regular12,
     color: Colors.neutral[60],
-  },
-  statusPill: {
-    paddingHorizontal: s(8),
-    paddingVertical: vs(2),
-    borderRadius: ms(10),
-    backgroundColor: Colors.neutral[20],
-  },
-  statusText: {
-    ...TextStyles.Medium12,
-    color: Colors.neutral[70],
   },
   receivedText: {
     color: Colors.brand.teal,

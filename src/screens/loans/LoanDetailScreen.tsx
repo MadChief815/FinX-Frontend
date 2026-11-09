@@ -704,22 +704,13 @@ const styles = StyleSheet.create({
     marginBottom: vs(10),
   },
   summaryCard: {
-    paddingVertical: vs(24),
-    paddingHorizontal: s(16),
-    marginBottom: vs(16),
+    paddingVertical: vs(20),
+    padding: s(16),
+    backgroundColor: Colors.neutral[10]
   },
   summaryContent: {
     alignItems: 'center',
     gap: vs(12),
-  },
-  summaryIcon: {
-    width: ms(48),
-    height: ms(48),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: vs(12),
-    borderRadius: ms(24),
-    backgroundColor: Colors.brand.orchid,
   },
   personName: {
     ...TextStyles.SemiBold18,
@@ -745,8 +736,11 @@ const styles = StyleSheet.create({
     color: Colors.neutral[10],
   },
   detailsSection: {
-    gap: vs(32),
-    marginTop: vs(48),
+    gap: vs(24),
+    marginTop: vs(18),
+    paddingTop: vs(16),
+    borderTopWidth: 1,
+    borderTopColor: Colors.neutral[30],
   },
   detailRow: {
     flexDirection: 'row',

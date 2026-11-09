@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 // Components
 import { IncomeDatePicker } from './IncomeDatePicker';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Utilities
 import { Colors } from '../../utils/Colors';
@@ -19,6 +18,7 @@ interface IncomeFormFieldsProps {
   receivedWillBeReversed?: boolean;
   onTitleChange: (value: string) => void;
   onAmountChange: (value: string) => void;
+  onAmountEndEditing?: (value: string) => void;
   onDateChange: (value: string) => void;
   onReceivedChange: (value: boolean) => void;
 }
@@ -32,6 +32,7 @@ export function IncomeFormFields({
   receivedWillBeReversed = false,
   onTitleChange,
   onAmountChange,
+  onAmountEndEditing,
   onDateChange,
   onReceivedChange,
 }: IncomeFormFieldsProps): React.JSX.Element {
@@ -58,6 +59,9 @@ export function IncomeFormFields({
         accessibilityLabel="Income amount"
         keyboardType="decimal-pad"
         editable={!disabled}
+        onEndEditing={({ nativeEvent }) =>
+          onAmountEndEditing?.(nativeEvent.text)
+        }
         onChangeText={(value) => {
           if (/^\d*\.?\d{0,2}$/.test(value)) onAmountChange(value);
         }}
@@ -85,9 +89,9 @@ export function IncomeFormFields({
         onPress={() => onReceivedChange(!isReceived)}
         style={({ pressed }) => [styles.receivedRow, pressed && styles.pressed]}
       >
-        <View style={[styles.checkbox, isReceived && styles.checkboxSelected]}>
+        <View style={[styles.radio, isReceived && styles.radioSelected]}>
           {isReceived && (
-            <Ionicons name="checkmark" size={ms(16)} color={Colors.neutral[10]} />
+            <View style={styles.radioDot} />
           )}
         </View>
         <View style={styles.receivedCopy}>
@@ -129,18 +133,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(4),
     marginTop: vs(4),
   },
-  checkbox: {
-    width: ms(24),
-    height: ms(24),
+  radio: {
+    width: ms(22),
+    height: ms(22),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: Colors.neutral[50],
-    borderRadius: ms(6),
+    borderRadius: ms(11),
   },
-  checkboxSelected: {
+  radioSelected: {
     borderColor: Colors.brand.orchid,
     backgroundColor: Colors.brand.orchid,
+  },
+  radioDot: {
+    width: ms(6),
+    height: ms(6),
+    borderRadius: ms(3),
+    backgroundColor: Colors.neutral[10],
   },
   receivedCopy: {
     flex: 1,
