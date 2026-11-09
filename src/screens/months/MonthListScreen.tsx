@@ -19,6 +19,7 @@ import type { MonthListItem } from '../../api/adapters/months.adapter';
 // Components
 import Header from '../../components/Header';
 import { Skeleton } from '../../components/Skeleton';
+import { SummaryCard } from '../../components/SummaryCard';
 
 // Icons
 import Ionicons from 'react-native-vector-icons/Ionicons'
@@ -88,6 +89,10 @@ export default function MonthListScreen({
       completedMonths: months.filter((month) => month.isCompleted),
     };
   }, [months]);
+  const activeMonthsTotal = useMemo(
+    () => activeMonths.reduce((total, month) => total + month.total, 0),
+    [activeMonths],
+  );
 
   const renderMonth = (
     month: MonthListItem,
@@ -130,6 +135,30 @@ export default function MonthListScreen({
           />
         }
       >
+        {/* Summary */}
+        <SummaryCard>
+          <View style={styles.summaryAmounts}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Active Months Total</Text>
+              {isLoading ? (
+                <Skeleton
+                  width="84%"
+                  height={ms(16)}
+                  style={styles.summarySkeleton}
+                />
+              ) : (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={styles.summaryValue}
+                >
+                  {formatCurrency(activeMonthsTotal)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </SummaryCard>
+
         {isLoading ? (
           <>
             {/* Active Months */}
@@ -307,6 +336,28 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: vs(24),
     paddingBottom: vs(96),
+  },
+  summaryAmounts: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: s(8),
+    marginBottom: vs(16),
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    ...TextStyles.Regular12,
+    color: Colors.neutral[60],
+  },
+  summaryValue: {
+    ...TextStyles.SemiBold14,
+    color: Colors.brand.deepPlum,
+    marginTop: vs(4),
+  },
+  summarySkeleton: {
+    marginTop: vs(4),
+    borderRadius: ms(6),
   },
   fullEmptyState: {
     flex: 1,

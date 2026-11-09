@@ -9,6 +9,8 @@ import type { LoansStackParamList } from './types';
 
 // Screens
 import LoansScreen from '../screens/loans/LoansScreen';
+import LoansCreateScreen from '../screens/loans/LoansCreateScreen';
+import LoanDetailScreen from '../screens/loans/LoanDetailScreen';
 
 const Stack = createNativeStackNavigator<LoansStackParamList>();
 
@@ -23,8 +25,27 @@ export default function LoansStack(): React.JSX.Element {
           setActiveStackDepth(event.data.state?.routes?.length ?? 1);
         },
       }}
+      initialRouteName='Loans'
     >
-      <Stack.Screen name="Loans" component={LoansScreen} />
+      <Stack.Screen
+        name="Loans"
+        component={LoansScreen}
+      />
+      <Stack.Screen
+        name="LoansCreate"
+        component={LoansCreateScreen}
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.78],
+          sheetGrabberVisible: false,
+          sheetCornerRadius: 20,
+        }}
+      />
+      <Stack.Screen
+        name="LoanDetail"
+        component={LoanDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack.Navigator>
   );
 }

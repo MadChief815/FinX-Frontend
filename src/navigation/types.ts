@@ -29,6 +29,10 @@ export type DashboardStackParamList = {
 
 export type LoansStackParamList = {
   Loans: undefined;
+  LoansCreate: undefined;
+  LoanDetail: {
+    loanId: number;
+  };
 };
 
 export type IncomeStackParamList = {

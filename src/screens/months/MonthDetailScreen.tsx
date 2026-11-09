@@ -41,6 +41,7 @@ import Header from '../../components/Header';
 import { BottomSheetModal } from '../../components/BottomSheetModal';
 import { LoadingButton } from '../../components/LoadingButton';
 import { Skeleton } from '../../components/Skeleton';
+import { SummaryCard } from '../../components/SummaryCard';
 
 // Utilities
 import { Colors } from '../../utils/Colors';
@@ -580,14 +581,13 @@ export default function MonthDetailScreen({
         }
         ListHeaderComponent={
           <View>
-            <Text style={styles.listheader}>Summary</Text>
-            <View style={styles.summaryCard}>
+            <SummaryCard>
               <View style={styles.summaryAmounts}>
                 <SummaryItem label="Total" value={month.total} />
                 <SummaryItem label="Spent" value={month.spent} />
                 <SummaryItem label="To spend" value={month.toSpend} />
               </View>
-            </View>
+            </SummaryCard>
             <Text style={styles.listheader}>Spends</Text>
           </View>
         }
@@ -1070,14 +1070,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: vs(20),
     paddingBottom: vs(12),
-  },
-  summaryCard: {
-    padding: s(16),
-    marginBottom: vs(16),
-    borderRadius: ms(16),
-    borderWidth: 1,
-    borderColor: Colors.neutral[30],
-    backgroundColor: Colors.neutral[10],
   },
   listheader: {
     ...TextStyles.Medium16,
