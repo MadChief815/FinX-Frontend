@@ -98,10 +98,10 @@ const ACCOUNT_AMOUNT_FIELDS: { key: AccountAmountKey; label: string }[] = [
 ];
 
 const formatCurrency = (value: number, decimals = 2): string => {
-  const sign = value < 0 ? '-' : '';
   const [whole, fraction] = Math.abs(value).toFixed(decimals).split('.');
   const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${sign}Rs. ${withCommas}${fraction ? `.${fraction}` : ''}`;
+  const sign = value < 0 ? '- ' : '';
+  return `Rs. ${sign}${withCommas}${fraction ? `.${fraction}` : ''}`;
 };
 
 export default function DashboardScreen(): React.JSX.Element {
@@ -380,7 +380,17 @@ export default function DashboardScreen(): React.JSX.Element {
             {isDashboardLoading ? (
               <Skeleton width={ms(190)} height={ms(38)} style={styles.heroAmountSkeleton} />
             ) : (
-              <Text style={styles.heroAmount}>
+              <Text
+                style={[
+                  styles.heroAmount,
+                  {
+                    color:
+                      dashboard.totalAvailable < 0
+                        ? Colors.status.error
+                        : Colors.neutral[10],
+                  },
+                ]}
+              >
                 {formatCurrency(dashboard.totalAvailable)}
               </Text>
             )}
@@ -404,7 +414,19 @@ export default function DashboardScreen(): React.JSX.Element {
                 {isDashboardLoading ? (
                   <Skeleton width={ms(76)} height={ms(18)} style={styles.valueSkeleton} />
                 ) : (
-                  <Text style={styles.heroTotalAmount}>{formatCurrency(dashboard.bank)}</Text>
+                  <Text
+                    style={[
+                      styles.heroTotalAmount,
+                      {
+                        color:
+                          dashboard.bank < 0
+                            ? Colors.status.error
+                            : Colors.neutral[10],
+                      },
+                    ]}
+                  >
+                    {formatCurrency(dashboard.bank)}
+                  </Text>
                 )}
               </View>
               <View style={styles.heroTotalDivider} />
@@ -426,7 +448,19 @@ export default function DashboardScreen(): React.JSX.Element {
                 {isDashboardLoading ? (
                   <Skeleton width={ms(76)} height={ms(18)} style={styles.valueSkeleton} />
                 ) : (
-                  <Text style={styles.heroTotalAmount}>{formatCurrency(dashboard.cash)}</Text>
+                  <Text
+                    style={[
+                      styles.heroTotalAmount,
+                      {
+                        color:
+                          dashboard.cash < 0
+                            ? Colors.status.error
+                            : Colors.neutral[10],
+                      },
+                    ]}
+                  >
+                    {formatCurrency(dashboard.cash)}
+                  </Text>
                 )}
               </View>
             </View>
@@ -639,13 +673,7 @@ export default function DashboardScreen(): React.JSX.Element {
                       style={[styles.checkbox, isChecked && styles.checkboxChecked]}
                     >
                       {isChecked && (
-                        <Ionicons
-                          name="checkmark"
-                          size={ms(15)}
-                          color={Colors.brand.orchid}
-                          accessibilityElementsHidden
-                          importantForAccessibility="no"
-                        />
+                        <View style={styles.selectionDot} />
                       )}
                     </View>
                     <Text style={styles.breakdownMonth}>{item.month}</Text>
@@ -721,13 +749,9 @@ export default function DashboardScreen(): React.JSX.Element {
                       />
                     )}
                     {!isDashboardLoading && isSelected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={ms(20)}
-                        color={Colors.brand.orchid}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no"
-                      />
+                      <View style={styles.sourceSelectionIndicator}>
+                        <View style={styles.selectionDot} />
+                      </View>
                     )}
                   </View>
                   {isDashboardLoading ? (
@@ -1242,6 +1266,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.brand.deepPlum,
     backgroundColor: Colors.brand.deepPlum,
   },
+  selectionDot: {
+    width: ms(6),
+    height: ms(6),
+    borderRadius: ms(3),
+    backgroundColor: Colors.neutral[10],
+  },
   breakdownMonth: {
     ...TextStyles.SemiBold14,
     color: Colors.neutral[90],
@@ -1284,6 +1314,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: vs(12),
+  },
+  sourceSelectionIndicator: {
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brand.orchid,
   },
   moneySourceIcon: {
     width: ms(34),
