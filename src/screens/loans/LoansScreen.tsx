@@ -95,10 +95,6 @@ export default function LoansScreen({
       totals: {
         lent: lent.reduce((sum, loan) => sum + amountValue(loan.amount), 0),
         borrowed: borrowed.reduce((sum, loan) => sum + amountValue(loan.amount), 0),
-        completed: completed.reduce(
-          (sum, loan) => sum + amountValue(loan.amount),
-          0,
-        ),
       },
     };
   }, [loans]);
@@ -154,6 +150,7 @@ export default function LoansScreen({
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -175,12 +172,6 @@ export default function LoansScreen({
             <SummaryItem
               label="Borrowed"
               value={formatCurrency(totals.borrowed)}
-              isLoading={isLoading}
-            />
-            <View style={styles.overviewDivider} />
-            <SummaryItem
-              label="Completed"
-              value={formatCurrency(totals.completed)}
               isLoading={isLoading}
             />
           </View>

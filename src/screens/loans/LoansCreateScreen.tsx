@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,13 +16,12 @@ import type { LoansStackParamList } from '../../navigation/types';
 // API
 import { createLoan } from '../../api/adapters/loans.adapter';
 import type { LoanType } from '../../api/adapters/loans.adapter';
+import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
+import { BottomSheetModal } from '../../components/BottomSheetModal';
 import Header from '../../components/Header';
 import { LoadingButton } from '../../components/LoadingButton';
-
-// Icons
-import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Utilities
 import { getApiErrorMessage } from '../../utils/apiError';
@@ -37,7 +37,7 @@ type LoansCreateScreenProps = NativeStackScreenProps<
 >;
 
 const isValidAmount = (value: string): boolean =>
-  /^\d+(\.\d{1,2})?$/.test(value.trim()) && Number(value) > 0;
+  /^\d+$/.test(value.trim()) && Number(value) > 0;
 
 export default function LoansCreateScreen({
   navigation,
@@ -46,6 +46,7 @@ export default function LoansCreateScreen({
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<LoanType>('lent');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMethodModalVisible, setIsMethodModalVisible] = useState(false);
 
   const submitLoan = async (): Promise<void> => {
     const trimmedName = personName.trim();
@@ -54,21 +55,50 @@ export default function LoansCreateScreen({
       return;
     }
     if (!isValidAmount(amount)) {
-      showErrorToast('Enter a valid amount greater than zero with up to two decimal places.');
+      showErrorToast('Enter a whole amount greater than zero.');
       return;
     }
 
+    setIsMethodModalVisible(true);
+  };
+
+  const createLoanWithSource = async (source: 'bank' | 'cash'): Promise<void> => {
+    const trimmedName = personName.trim();
+    const amountValue = Number(amount);
+    if (!trimmedName || !isValidAmount(amount)) return;
+
     setIsSubmitting(true);
+    let balanceAdjusted = false;
     try {
+      await adjustDashboardBalance(
+        source,
+        type === 'lent' ? -amountValue : amountValue,
+      );
+      balanceAdjusted = true;
       await createLoan({
         person_name: trimmedName,
-        amount: Number(amount).toFixed(2),
+        amount: String(amountValue),
         type,
         status: 'active',
       });
+      setIsMethodModalVisible(false);
       showSuccessToast('Loan created.');
       navigation.goBack();
     } catch (error) {
+      if (balanceAdjusted) {
+        try {
+          await adjustDashboardBalance(
+            source,
+            type === 'lent' ? amountValue : -amountValue,
+          );
+        } catch (rollbackError) {
+          setIsMethodModalVisible(false);
+          showErrorToast(
+            `Loan was not created and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
+          );
+          return;
+        }
+      }
       showErrorToast(getApiErrorMessage(error, 'Unable to create this loan. Please try again.'));
     } finally {
       setIsSubmitting(false);
@@ -112,11 +142,11 @@ export default function LoansCreateScreen({
             <Text style={styles.label}>Amount</Text>
             <TextInput
               accessibilityLabel="Loan amount"
-              keyboardType="decimal-pad"
+              keyboardType="number-pad"
               onChangeText={(value) => {
-                if (/^\d*\.?\d{0,2}$/.test(value)) setAmount(value);
+                if (/^\d*$/.test(value)) setAmount(value);
               }}
-              placeholder="0.00"
+              placeholder="0"
               placeholderTextColor={Colors.neutral[50]}
               returnKeyType="done"
               style={styles.input}
@@ -150,6 +180,57 @@ export default function LoansCreateScreen({
           </LoadingButton>
         </View>
       </KeyboardAvoidingView>
+      <BottomSheetModal
+        visible={isMethodModalVisible}
+        onClose={() => {
+          if (!isSubmitting) setIsMethodModalVisible(false);
+        }}
+        size="compact"
+      >
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>
+            {type === 'lent' ? 'Deduct loan' : 'Increase account'}
+          </Text>
+          <Text style={styles.modalDescription}>
+            {type === 'lent'
+              ? `Choose where to deduct Rs. ${Number(amount).toLocaleString()} from.`
+              : `Choose where to add Rs. ${Number(amount).toLocaleString()} to.`}
+          </Text>
+          {(['bank', 'cash'] as const).map((source) => (
+            <Pressable
+              key={source}
+              accessibilityRole="button"
+              accessibilityLabel={`${type === 'lent' ? 'Deduct from' : 'Add to'} ${source}`}
+              disabled={isSubmitting}
+              onPress={() => void createLoanWithSource(source)}
+              style={({ pressed }) => [
+                styles.sourceOption,
+                pressed && styles.pressed,
+                isSubmitting && styles.disabled,
+              ]}
+            >
+              <Text style={styles.sourceOptionText}>
+                {source === 'bank' ? 'Bank' : 'Cash'}
+              </Text>
+              {isSubmitting && (
+                <ActivityIndicator color={Colors.brand.plum} />
+              )}
+            </Pressable>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={() => setIsMethodModalVisible(false)}
+            style={({ pressed }) => [
+              styles.cancelOption,
+              pressed && styles.pressed,
+              isSubmitting && styles.disabled,
+            ]}
+          >
+            <Text style={styles.cancelOptionText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -173,13 +254,7 @@ function TypeOption({
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
         {selected && (
-          <Ionicons
-            name="checkmark"
-            size={ms(14)}
-            color={Colors.neutral[10]}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          />
+          <View style={styles.radioDot} />
         )}
       </View>
       <Text style={styles.typeOptionText}>{label}</Text>
@@ -228,9 +303,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: s(10),
     paddingHorizontal: s(12),
-    borderWidth: 1,
-    borderColor: Colors.neutral[30],
-    borderRadius: ms(12),
   },
   radio: {
     width: ms(22),
@@ -244,6 +316,12 @@ const styles = StyleSheet.create({
   radioSelected: {
     borderColor: Colors.brand.orchid,
     backgroundColor: Colors.brand.orchid,
+  },
+  radioDot: {
+    width: ms(6),
+    height: ms(6),
+    borderRadius: ms(3),
+    backgroundColor: Colors.neutral[10],
   },
   typeOptionText: {
     ...TextStyles.Medium14,
@@ -264,6 +342,47 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...TextStyles.SemiBold16,
     color: Colors.neutral[10],
+  },
+  modalCard: {
+    gap: vs(10),
+    padding: s(20),
+  },
+  modalTitle: {
+    ...TextStyles.SemiBold20,
+    color: Colors.brand.deepPlum,
+  },
+  modalDescription: {
+    ...TextStyles.Regular14,
+    color: Colors.neutral[70],
+    marginBottom: vs(4),
+  },
+  sourceOption: {
+    minHeight: vs(52),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: s(14),
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+    backgroundColor: Colors.neutral[10],
+  },
+  sourceOptionText: {
+    ...TextStyles.SemiBold16,
+    color: Colors.brand.deepPlum,
+  },
+  cancelOption: {
+    minHeight: vs(42),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: vs(2),
+  },
+  cancelOptionText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[70],
+  },
+  disabled: {
+    opacity: 0.6,
   },
   pressed: {
     opacity: 0.72,

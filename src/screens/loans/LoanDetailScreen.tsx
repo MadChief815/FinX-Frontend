@@ -2,8 +2,6 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,7 +22,9 @@ import type {
   Loan,
   LoanStatus,
   LoanType,
+  LoanUpdatePayload,
 } from '../../api/adapters/loans.adapter';
+import { adjustDashboardBalance } from '../../api/adapters/dashboard.adapter';
 
 // Components
 import Header from '../../components/Header';
@@ -62,7 +62,27 @@ const formatDateTime = (value: string): string => {
 };
 
 const isValidAmount = (value: string): boolean =>
-  /^\d+(\.\d{1,2})?$/.test(value.trim()) && Number(value) > 0;
+  /^\d+$/.test(value.trim()) && Number(value) > 0;
+
+const getLoanBalanceDelta = (
+  loan: Loan,
+  payload: LoanUpdatePayload,
+): number => {
+  const previousAmount = Number(loan.amount);
+  const nextAmount = Number(payload.amount);
+  if (loan.status === 'active' && payload.status === 'paid') {
+    return payload.type === 'lent' ? nextAmount : -nextAmount;
+  }
+  if (loan.status === 'paid' && payload.status === 'active') {
+    return nextAmount;
+  }
+  if (loan.status === 'paid' && payload.status === 'paid') {
+    const previousImpact = loan.type === 'lent' ? previousAmount : -previousAmount;
+    const nextImpact = payload.type === 'lent' ? nextAmount : -nextAmount;
+    return nextImpact - previousImpact;
+  }
+  return 0;
+};
 
 export default function LoanDetailScreen({
   navigation,
@@ -75,12 +95,15 @@ export default function LoanDetailScreen({
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isDeleteConfirmationVisible, setIsDeleteConfirmationVisible] =
     useState(false);
+  const [isBalanceModalVisible, setIsBalanceModalVisible] = useState(false);
+  const [balanceSource, setBalanceSource] = useState<'cash' | 'bank' | null>(null);
   const [personName, setPersonName] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<LoanType>('lent');
   const [status, setStatus] = useState<LoanStatus>('active');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAdjustingBalance, setIsAdjustingBalance] = useState(false);
   const hasLoadedLoan = useRef(false);
 
   const loadLoan = useCallback(async (showLoading: boolean): Promise<void> => {
@@ -115,9 +138,11 @@ export default function LoanDetailScreen({
   const openEditor = (): void => {
     if (!loan) return;
     setPersonName(loan.personName);
-    setAmount(loan.amount);
+    setAmount(String(Math.trunc(Number(loan.amount))));
     setType(loan.type);
     setStatus(loan.status);
+    setBalanceSource(null);
+    setIsBalanceModalVisible(false);
     setIsDeleteConfirmationVisible(false);
     setIsEditModalVisible(true);
   };
@@ -130,19 +155,19 @@ export default function LoanDetailScreen({
       return;
     }
     if (!isValidAmount(amount)) {
-      showErrorToast('Enter a valid amount greater than zero with up to two decimal places.');
+      showErrorToast('Enter a whole amount greater than zero.');
       return;
     }
 
     const payload = {
       person_name: trimmedName,
-      amount: Number(amount).toFixed(2),
+      amount: String(Number(amount)),
       type,
       status,
     };
     if (
       payload.person_name === loan.personName &&
-      payload.amount === Number(loan.amount).toFixed(2) &&
+      Number(payload.amount) === Number(loan.amount) &&
       payload.type === loan.type &&
       payload.status === loan.status
     ) {
@@ -150,28 +175,57 @@ export default function LoanDetailScreen({
       return;
     }
 
+    const balanceDelta = getLoanBalanceDelta(loan, payload);
+    if (balanceDelta !== 0 && !balanceSource) {
+      setIsBalanceModalVisible(true);
+      return;
+    }
+
     setIsSaving(true);
+    let balanceAdjusted = false;
     try {
+      if (balanceDelta !== 0 && balanceSource) {
+        setIsAdjustingBalance(true);
+        await adjustDashboardBalance(balanceSource, balanceDelta);
+        balanceAdjusted = true;
+      }
       await updateLoan(loan.id, payload);
-      setLoan((currentLoan) =>
-        currentLoan
-          ? {
-            ...currentLoan,
-            personName: payload.person_name,
-            amount: payload.amount,
-            type: payload.type,
-            status: payload.status,
-          }
-          : currentLoan,
+      showSuccessToast(
+        balanceDelta === 0
+          ? 'Loan updated.'
+          : balanceDelta > 0
+            ? `Loan updated and money restored to ${balanceSource}.`
+            : `Loan updated and money deducted from ${balanceSource}.`,
       );
-      setIsEditModalVisible(false);
-      showSuccessToast('Loan updated.');
-      void loadLoan(false);
+      navigation.goBack();
     } catch (error) {
+      if (balanceAdjusted && balanceSource) {
+        try {
+          await adjustDashboardBalance(balanceSource, -balanceDelta);
+        } catch (rollbackError) {
+          showErrorToast(
+            `Loan was not updated and balance rollback failed: ${getApiErrorMessage(rollbackError, 'Please check your account balance.')}`,
+          );
+          navigation.goBack();
+          return;
+        }
+      }
       showErrorToast(getApiErrorMessage(error, 'Unable to update this loan. Please try again.'));
     } finally {
+      setIsAdjustingBalance(false);
       setIsSaving(false);
     }
+  };
+
+  const selectBalanceSource = (source: 'cash' | 'bank'): void => {
+    setBalanceSource(source);
+    setIsBalanceModalVisible(false);
+  };
+
+  const closeBalanceSourceModal = (): void => {
+    if (isAdjustingBalance) return;
+    setBalanceSource(null);
+    setIsBalanceModalVisible(false);
   };
 
   const removeLoan = async (): Promise<void> => {
@@ -189,6 +243,15 @@ export default function LoanDetailScreen({
       setIsDeleting(false);
     }
   };
+
+  const draftBalanceDelta = loan
+    ? getLoanBalanceDelta(loan, {
+      person_name: personName.trim(),
+      amount: String(Number(amount)),
+      type,
+      status,
+    })
+    : 0;
 
   return (
     <SafeAreaView
@@ -223,17 +286,7 @@ export default function LoanDetailScreen({
           )}
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => void refreshLoan()}
-              tintColor={Colors.brand.plum}
-              colors={[Colors.brand.plum]}
-            />
-          }
-        >
+        <View style={styles.detailsContent}>
           {isLoading ? (
             <LoanDetailsSkeleton />
           ) : loan ? (
@@ -263,9 +316,26 @@ export default function LoanDetailScreen({
               </View>
 
               {loadError && (
-                <Text accessibilityRole="alert" style={styles.errorMessage}>
-                  Unable to refresh this loan. Pull down to try again.
-                </Text>
+                <View style={styles.retryContainer}>
+                  <Text accessibilityRole="alert" style={styles.errorMessage}>
+                    Unable to refresh this loan.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isRefreshing}
+                    onPress={() => void refreshLoan()}
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    {isRefreshing ? (
+                      <ActivityIndicator color={Colors.brand.plum} />
+                    ) : (
+                      <Text style={styles.retryButtonText}>Try again</Text>
+                    )}
+                  </Pressable>
+                </View>
               )}
 
             </>
@@ -279,13 +349,28 @@ export default function LoanDetailScreen({
                 importantForAccessibility="no"
               />
               <Text accessibilityRole="alert" style={styles.errorMessage}>
-                {loadError
-                  ? 'Unable to load this loan. Pull down to try again.'
-                  : 'Loan details are unavailable.'}
+                {loadError ? 'Unable to load this loan.' : 'Loan details are unavailable.'}
               </Text>
+              {loadError && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isRefreshing}
+                  onPress={() => void refreshLoan()}
+                  style={({ pressed }) => [
+                    styles.retryButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {isRefreshing ? (
+                    <ActivityIndicator color={Colors.brand.plum} />
+                  ) : (
+                    <Text style={styles.retryButtonText}>Try again</Text>
+                  )}
+                </Pressable>
+              )}
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Edit Loan Modal */}
@@ -298,10 +383,7 @@ export default function LoanDetailScreen({
         }}
         size="form"
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.modalCard}
-        >
+        <View style={styles.modalCard}>
           {isDeleteConfirmationVisible ? (
             <>
               <View style={styles.modalHeader}>
@@ -378,11 +460,11 @@ export default function LoanDetailScreen({
               <Text style={styles.inputLabel}>Amount</Text>
               <TextInput
                 accessibilityLabel="Loan amount"
-                keyboardType="decimal-pad"
+                keyboardType="number-pad"
                 onChangeText={(value) => {
-                  if (/^\d*\.?\d{0,2}$/.test(value)) setAmount(value);
+                  if (/^\d*$/.test(value)) setAmount(value);
                 }}
-                placeholder="0.00"
+                placeholder="0"
                 placeholderTextColor={Colors.neutral[50]}
                 style={styles.input}
                 value={amount}
@@ -409,14 +491,27 @@ export default function LoanDetailScreen({
                 <LoanOption
                   label="Active"
                   selected={status === 'active'}
-                  onPress={() => setStatus('active')}
+                  onPress={() => {
+                    setStatus('active');
+                    setBalanceSource(null);
+                    setIsBalanceModalVisible(loan?.status === 'paid');
+                  }}
                 />
                 <LoanOption
                   label="Paid"
                   selected={status === 'paid'}
-                  onPress={() => setStatus('paid')}
+                  onPress={() => {
+                    setStatus('paid');
+                    setBalanceSource(null);
+                    setIsBalanceModalVisible(loan?.status === 'active');
+                  }}
                 />
               </View>
+              {balanceSource && (
+                <Text style={styles.sourceDescription}>
+                  Method: {balanceSource === 'bank' ? 'Bank' : 'Cash'}
+                </Text>
+              )}
 
               {/* Actions */}
               <LoadingButton
@@ -427,9 +522,83 @@ export default function LoanDetailScreen({
               >
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </LoadingButton>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSaving || isDeleting}
+                onPress={() => setIsEditModalVisible(false)}
+                style={({ pressed }) => [
+                  styles.cancelButton,
+                  pressed && styles.pressed,
+                  (isSaving || isDeleting) && styles.disabled,
+                ]}
+              >
+                <Text style={styles.cancelButtonText}>Close</Text>
+              </Pressable>
             </>
           )}
-        </ScrollView>
+        </View>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        visible={isBalanceModalVisible}
+        onClose={closeBalanceSourceModal}
+        size="compact"
+      >
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>
+            {draftBalanceDelta > 0 ? 'Restore loan' : 'Deduct loan'}
+          </Text>
+          <Text style={styles.sourceDescription}>
+            {`Choose where to ${draftBalanceDelta > 0 ? 'restore' : 'deduct'} ${formatCurrency(String(Math.abs(draftBalanceDelta)))} ${draftBalanceDelta > 0 ? 'to' : 'from'}.`}
+          </Text>
+          {(['bank', 'cash'] as const).map((source) => {
+            const restores = draftBalanceDelta > 0;
+            return (
+              <Pressable
+                key={source}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${source} to ${restores ? 'restore' : 'deduct'}`}
+                disabled={isAdjustingBalance}
+                onPress={() => selectBalanceSource(source)}
+                style={({ pressed }) => [
+                  styles.sourceOption,
+                  pressed && styles.pressed,
+                  isAdjustingBalance && styles.disabled,
+                ]}
+              >
+                <Ionicons
+                  name={source === 'bank' ? 'business-outline' : 'cash-outline'}
+                  size={ms(22)}
+                  color={Colors.brand.plum}
+                />
+                <Text style={styles.sourceOptionText}>
+                  {source === 'bank' ? 'Bank' : 'Cash'}
+                </Text>
+                {isAdjustingBalance ? (
+                  <ActivityIndicator color={Colors.brand.plum} />
+                ) : (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={ms(20)}
+                    color={Colors.neutral[60]}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+          <Pressable
+            accessibilityRole="button"
+            disabled={isAdjustingBalance}
+            onPress={closeBalanceSourceModal}
+            style={({ pressed }) => [
+              styles.cancelOption,
+              pressed && styles.pressed,
+              isAdjustingBalance && styles.disabled,
+            ]}
+          >
+            <Text style={styles.cancelOptionText}>Cancel</Text>
+          </Pressable>
+        </View>
       </BottomSheetModal>
     </SafeAreaView>
   );
@@ -524,8 +693,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  detailsContent: {
+    flex: 1,
     paddingTop: vs(24),
     paddingBottom: vs(32),
   },
@@ -602,6 +771,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: vs(12),
   },
+  retryContainer: {
+    alignItems: 'center',
+    gap: vs(8),
+  },
+  retryButton: {
+    minHeight: vs(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(16),
+    borderRadius: ms(10),
+  },
+  retryButtonText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.brand.plum,
+  },
   errorMessage: {
     ...TextStyles.Regular14,
     color: Colors.status.error,
@@ -620,6 +804,37 @@ const styles = StyleSheet.create({
   modalTitle: {
     ...TextStyles.SemiBold20,
     color: Colors.brand.deepPlum,
+  },
+  sourceDescription: {
+    ...TextStyles.Regular14,
+    color: Colors.neutral[70],
+    marginBottom: vs(4),
+  },
+  sourceOption: {
+    minHeight: vs(52),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(12),
+    paddingHorizontal: s(14),
+    borderWidth: 1,
+    borderColor: Colors.neutral[30],
+    borderRadius: ms(12),
+    backgroundColor: Colors.neutral[10],
+  },
+  sourceOptionText: {
+    ...TextStyles.SemiBold16,
+    flex: 1,
+    color: Colors.brand.deepPlum,
+  },
+  cancelOption: {
+    minHeight: vs(42),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: vs(2),
+  },
+  cancelOptionText: {
+    ...TextStyles.SemiBold14,
+    color: Colors.neutral[70],
   },
   iconButton: {
     width: ms(40),
